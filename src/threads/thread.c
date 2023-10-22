@@ -545,9 +545,7 @@ next_thread_to_run(void)
 	else {
 		// Original Implementation
 		// return list_entry(list_pop_front(&ready_list), struct thread, elem);
-
-		// struct list_elem* elem = list_max(&ready_list, compare_thread_priority, NULL);
-		// list_remove(elem);
+		// Pop the thread with the largest priority
 		struct list_elem* elem = list_pop_max(&ready_list, compare_thread_priority, NULL);
 		return list_entry(elem, struct thread, elem);
 	}
@@ -647,10 +645,10 @@ void Update_load_avg() {
 	/* ready_threads is the number of threads that **are either running or ready** to run at time of update (not including the idle thread). */
 	// If current thread is running, calculate it
 	ready_threads += (int)(thread_current() != idle_thread);
-	FixedPoint32 fp_1 = FP32_create(1), fp_59 = FP32_create(59);
+	FixedPoint32 fp_1 = FP32_create(1), fp_59 = FP32_create(59), fp_60 = FP32_create(60);
 	load_avg = FP32_add(
-		FP32_mul(FP32_div_int(fp_59, 60), load_avg),
-		FP32_mul_int(FP32_div_int(fp_1, 60), ready_threads)
+		FP32_mul(FP32_div(fp_59, fp_60), load_avg),
+		FP32_mul_int(FP32_div(fp_1, fp_60), ready_threads)
 	);
 }
 /* Recent CPU Calculater */
@@ -684,23 +682,15 @@ bool thread_cmp_priority(const struct list_elem* a, const struct thread* thr)
 void Update_Priority_naive(struct thread* thread) {
 	ASSERT(!thread_mlfqs);
 	thread->priority = thread->base_prioirity;
-	struct list_elem* elem = list_begin(&thread->donaters);
-	//compare the largest priority with priority of donater
-	if (elem != list_end(&thread->donaters)) {
-		struct thread* donater = list_entry(elem, struct thread, donatee_elem);
-		if (donater->priority > thread->priority) {
-			thread->priority = donater->priority;
-		}
-	}
 
 	// Iterate donater list, find the max priority
-	// for(struct list_elem* elem = list_begin(&thread->donaters);
-	// 	elem != list_end(&thread->donaters);
-	// 	elem = list_next(elem)){
+	for(struct list_elem* elem = list_begin(&thread->donaters);
+		elem != list_end(&thread->donaters);
+		elem = list_next(elem)){
 
-	// 		struct thread* donater = list_entry(elem, struct thread, donatee_elem);
-	// 		if(donater->priority > thread->priority){
-	// 			thread->priority = donater->priority;
-	// 		}
-	// }
+			struct thread* donater = list_entry(elem, struct thread, donatee_elem);
+			if(donater->priority > thread->priority){
+				thread->priority = donater->priority;
+			}
+	}
 }

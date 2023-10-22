@@ -217,6 +217,7 @@ void lock_acquire(struct lock *lock)
 		// Deal with priority donation
 		struct thread* current_thread = thread_current();
 		if(lock->holder){
+			// Check at Lock Acquire
 			donate_check_at_lockacquire(
 				lock, current_thread, NULL
 			);
