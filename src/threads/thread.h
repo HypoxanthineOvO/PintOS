@@ -88,7 +88,6 @@ struct thread
 	enum thread_status status; /* Thread state. */
 	char name[16];			   /* Name (for debugging purposes). */
 	uint8_t* stack;			   /* Saved stack pointer. */
-	int priority;			   /* Priority. */
 	struct list_elem allelem;  /* List element for all threads list. */
 
 	/* Shared between thread.c and synch.c. */
@@ -97,9 +96,9 @@ struct thread
 	/* Add for Project 1.1 */
 	bool in_sleep;		 // The thread is sleeping!
 	int64_t sleep_until; // If the thread is sleeping, this variable mark the wake-up time
-	/* Add for Project 1.2 */
-	int base_prioirity; // The base priority before donation
-	int max_priority;// The maximun priority among the threads
+		/* Add for Project 1.2 */
+	int priority_base; // The base priority before donation, it's the "True Priority"
+	int priority_used;// The priority that the thread used in comparison, it's the "Effective Priority"
 	struct list donaters; // The list of donaters
 	struct thread* donatee; // The thread that the current thread donate to
 	struct list_elem donatee_elem; // The list element of the donatee

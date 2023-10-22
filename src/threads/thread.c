@@ -372,8 +372,8 @@ void thread_foreach_list(thread_action_func* func, struct list* list, void* aux)
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
-	if (thread_mlfqs) return; // If thread_mlfqs. use BSD Scheduler.
-	thread_current()->base_prioirity = new_priority;
+	if (thread_mlfqs) return; // If thread_mlfqs. Use BSD Scheduler.
+	thread_current()->priority_base = new_priority;
 	// Update Priority in case of donation
 	Update_Priority_naive(thread_current());
 	thread_yield();
@@ -382,7 +382,7 @@ void thread_set_priority(int new_priority) {
 /* Returns the current thread's priority. */
 int thread_get_priority(void)
 {
-	return thread_current()->priority;
+	return thread_current()->priority_used;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -501,8 +501,8 @@ init_thread(struct thread* t, const char* name, int priority)
 	/* Init for Project 1.2 */
 	t->donatee = NULL;
 	list_init(&t->donaters);
-	t->priority = priority;
-	t->base_prioirity = priority;
+	t->priority_used = priority;
+	t->priority_base = priority;
 
 	old_level = intr_disable();
 	list_push_back(&all_list, &t->allelem);
@@ -529,7 +529,7 @@ bool compare_thread_priority(
 ) {
 	struct thread* th_a = list_entry(a, struct thread, elem),
 		* th_b = list_entry(b, struct thread, elem);
-	return th_a->priority < th_b->priority;
+	return th_a->priority_used < th_b->priority_used;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -670,27 +670,26 @@ void Update_Priority_mlfqs(struct thread* thread) {
 	/* Priority = PRI_MAX - 1/4 * recent_cpu - 2 * nice */
 	// The result should be rounded down to the nearest integer (truncated)
 	int priority = clip(PRI_MAX - FP32_to_int_rnear(FP32_div_int(thread->recent_cpu, 4)) - thread->nice * 2, PRI_MIN, PRI_MAX);
-	thread->priority = priority;
+	thread->priority_used = priority;
 }
 
 /* priority compare function. */
 bool thread_cmp_priority(const struct list_elem* a, const struct thread* thr)
 {
-	return list_entry(a, struct thread, donatee_elem)->priority > thr->priority;
+	return list_entry(a, struct thread, donatee_elem)->priority_used > thr->priority_used;
 }
 
 void Update_Priority_naive(struct thread* thread) {
 	ASSERT(!thread_mlfqs);
-	thread->priority = thread->base_prioirity;
-
-	// Iterate donater list, find the max priority
+	// Reset priority_used as it's base
+	thread->priority_used = thread->priority_base;
+	// Redo priority donation
 	for(struct list_elem* elem = list_begin(&thread->donaters);
-		elem != list_end(&thread->donaters);
-		elem = list_next(elem)){
-
-			struct thread* donater = list_entry(elem, struct thread, donatee_elem);
-			if(donater->priority > thread->priority){
-				thread->priority = donater->priority;
-			}
+			elem != list_end(&thread->donaters);
+			elem = list_next(elem)){
+		struct thread* donater = list_entry(elem, struct thread, donatee_elem);
+		if(donater->priority_used > thread->priority_used){
+			thread->priority_used = donater->priority_used;
+		}
 	}
 }

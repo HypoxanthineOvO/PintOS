@@ -25,12 +25,16 @@ struct lock
 };
 
 void lock_init(struct lock*);
-void donate_check_at_lockacquire(struct lock*, struct thread*, void*);
+
 void lock_acquire(struct lock*);
 bool lock_try_acquire(struct lock*);
-void donate_check_at_lockrelease(struct thread*, void*);
+
 void lock_release(struct lock*);
 bool lock_held_by_current_thread(const struct lock*);
+
+/* Project 1.2. Priority Donation */
+void Donation_At_LockAcquire(struct lock*, struct thread*);
+void ResetDonatee(struct thread*, void*);
 
 /* Condition variable. */
 struct condition
