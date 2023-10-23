@@ -108,8 +108,6 @@ void thread_init(void)
 	// Project 1.1 Init
 	initial_thread->in_sleep = false;
 	initial_thread->sleep_until = 0;
-	// Project 1.3 Init
-
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -197,7 +195,7 @@ tid_t thread_create(const char* name, int priority,
 	if (thread_mlfqs) {
 		t->nice = 0;
 		t->recent_cpu = FP32_create(0);
-		Update_Priority_mlfqs(t);
+		update_priority_mlfqs(t);
 	}
 	/* Stack frame for kernel_thread(). */
 	kf = alloc_frame(t, sizeof * kf);
@@ -305,7 +303,6 @@ void thread_exit(void)
 	   when it calls thread_schedule_tail(). */
 	intr_disable();
 
-	/**/
 	struct thread* current_thread = thread_current();
 	if (current_thread->donatee) {
 		// Release it's donatee
@@ -375,7 +372,7 @@ void thread_set_priority(int new_priority) {
 	if (thread_mlfqs) return; // If thread_mlfqs. Use BSD Scheduler.
 	thread_current()->priority_base = new_priority;
 	// Update Priority in case of donation
-	Update_Priority_naive(thread_current());
+	update_priority_naive(thread_current());
 	thread_yield();
 }
 
@@ -390,7 +387,7 @@ void thread_set_nice(int nice)
 {
 	struct thread* current_thread = thread_current();
 	current_thread->nice = nice;
-	Update_Priority_mlfqs(current_thread);
+	update_priority_mlfqs(current_thread);
 	thread_yield();// Put thread into waiting queue
 }
 
@@ -543,8 +540,6 @@ next_thread_to_run(void)
 	if (list_empty(&ready_list))
 		return idle_thread;
 	else {
-		// Original Implementation
-		// return list_entry(list_pop_front(&ready_list), struct thread, elem);
 		// Pop the thread with the largest priority
 		struct list_elem* elem = list_pop_max(&ready_list, compare_thread_priority, NULL);
 		return list_entry(elem, struct thread, elem);
@@ -639,7 +634,7 @@ uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
 /* Project 1.3. BSD4.4 Scheduler*/
 /* Load AVG Updater */
-void Update_load_avg() {
+void update_load_avg() {
 	// Number of ready_threads
 	int ready_threads = list_size(&ready_list);
 	/* ready_threads is the number of threads that **are either running or ready** to run at time of update (not including the idle thread). */
@@ -652,7 +647,7 @@ void Update_load_avg() {
 	);
 }
 /* Recent CPU Calculater */
-void Update_recent_cpu(struct thread* thread, void* wtf) {
+void update_recent_cpu(struct thread* thread, void* wtf) {
 	// Calculate load_avg*2 as a useful value
 	FixedPoint32 load_avg_mul_2 = FP32_mul_int(load_avg, 2);
 	// new value of recent cpu
@@ -664,7 +659,7 @@ void Update_recent_cpu(struct thread* thread, void* wtf) {
 }
 
 /* Priority Updater */
-void Update_Priority_mlfqs(struct thread* thread) {
+void update_priority_mlfqs(struct thread* thread) {
 	ASSERT(thread_mlfqs);
 	if (thread == idle_thread) return;
 	/* Priority = PRI_MAX - 1/4 * recent_cpu - 2 * nice */
@@ -673,13 +668,7 @@ void Update_Priority_mlfqs(struct thread* thread) {
 	thread->priority_used = priority;
 }
 
-/* priority compare function. */
-bool thread_cmp_priority(const struct list_elem* a, const struct thread* thr)
-{
-	return list_entry(a, struct thread, donatee_elem)->priority_used > thr->priority_used;
-}
-
-void Update_Priority_naive(struct thread* thread) {
+void update_priority_naive(struct thread* thread) {
 	ASSERT(!thread_mlfqs);
 	// Reset priority_used as it's base
 	thread->priority_used = thread->priority_base;

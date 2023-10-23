@@ -33,8 +33,8 @@ void lock_release(struct lock*);
 bool lock_held_by_current_thread(const struct lock*);
 
 /* Project 1.2. Priority Donation */
-void Donation_At_LockAcquire(struct lock*, struct thread*);
-void ResetDonatee(struct thread*, void*);
+void donation_at_lock_acquire(struct lock*, struct thread*);
+void resetDonatee(struct thread*, void*);
 
 /* Condition variable. */
 struct condition

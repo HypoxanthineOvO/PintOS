@@ -105,8 +105,6 @@ void sema_up(struct semaphore *sema) {
 
 	enum intr_level old_level = intr_disable();
 	if (!list_empty(&sema->waiters))
-		// thread_unblock(list_entry(list_pop_front(&sema->waiters),
-		// 						  struct thread, elem));
 		thread_unblock(list_entry(
 			list_pop_max(&sema->waiters,compare_thread_priority , NULL),
 			struct thread, elem)
@@ -184,7 +182,7 @@ void lock_init(struct lock *lock)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-void Donation_At_LockAcquire(struct lock* lock, struct thread* current_thread){
+void donation_at_lock_acquire(struct lock* lock, struct thread* current_thread){
 	// Add the current thread to the donaters list of the lock holder
 	list_push_back(&lock->holder->donaters, &current_thread->donatee_elem);
 	current_thread->donatee = lock->holder;
@@ -212,7 +210,7 @@ void lock_acquire(struct lock *lock)
 		struct thread* current_thread = thread_current();
 		// Do priority donation only if the lock is held by other thread
 		if(lock->holder){	
-			Donation_At_LockAcquire(lock, current_thread);
+			donation_at_lock_acquire(lock, current_thread);
 		}
 		sema_down(&lock->semaphore);
 		lock->holder = current_thread;
@@ -245,7 +243,7 @@ bool lock_try_acquire(struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to release a lock within an interrupt
    handler. */
-void ResetDonatee(struct thread* donater, void* aux){
+void resetDonatee(struct thread* donater, void* aux){
 	if(donater->donatee){
 		donater->donatee = NULL;
 		list_remove(&donater->donatee_elem);
@@ -265,11 +263,11 @@ void lock_release(struct lock *lock)
 		enum intr_level old_level = intr_disable();
 		struct list* donaters = &lock->semaphore.waiters;
 		thread_foreach_list(
-			ResetDonatee, donaters, NULL	
+			resetDonatee, donaters, NULL	
 		);
 		lock->holder = NULL;
 		// Update Priority
-		Update_Priority_naive(thread_current());
+		update_priority_naive(thread_current());
 		sema_up(&lock->semaphore);
 		// Enable interrupt
 		intr_set_level(old_level);
@@ -369,9 +367,6 @@ void cond_signal(struct condition *cond, struct lock *lock UNUSED)
 	ASSERT(lock_held_by_current_thread(lock));
 
 	if (!list_empty(&cond->waiters)){
-		// sema_up(&list_entry(list_pop_front(&cond->waiters),
-		// 					struct semaphore_elem, elem)
-		// 			 ->semaphore);
 		sema_up(&list_entry(
 			list_pop_max(&cond->waiters, compare_semaphore_elem , NULL), struct semaphore_elem, elem
 		)->semaphore);

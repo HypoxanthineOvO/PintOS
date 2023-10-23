@@ -87,16 +87,6 @@ timer_elapsed(int64_t then)
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
 	 be turned on. */
-	 // void
-	 // timer_sleep(int64_t ticks)
-	 // {
-	 // 	int64_t start = timer_ticks();
-
-	 // 	ASSERT(intr_get_level() == INTR_ON);
-	 // 	while (timer_elapsed(start) < ticks)
-	 // 		thread_yield();
-	 // }
-
 void timer_sleep(int64_t ticks) {
 	if (ticks <= 0) return;
 	int64_t start_ticks = timer_ticks(),
@@ -212,17 +202,17 @@ timer_interrupt(struct intr_frame* args UNUSED)
 		if (current_thread->status == THREAD_RUNNING) {
 			ASSERT(intr_context());
 			current_thread->recent_cpu = FP32_add_int(current_thread->recent_cpu, 1);
-			Update_Priority_mlfqs(current_thread);
+			update_priority_mlfqs(current_thread);
 		}
 		int now_tick = timer_ticks();
 		if (now_tick % TIMER_FREQ == 0) {
 			enum intr_level old_level = intr_disable();
-			Update_load_avg();
-			thread_foreach(Update_recent_cpu, NULL);
+			update_load_avg();
+			thread_foreach(update_recent_cpu, NULL);
 			intr_set_level(old_level);
 		}
 		if (now_tick % 4 == 0) {
-			thread_foreach(Update_Priority_mlfqs, NULL);
+			thread_foreach(update_priority_mlfqs, NULL);
 		}
 	}
 

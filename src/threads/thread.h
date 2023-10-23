@@ -96,7 +96,7 @@ struct thread
 	/* Add for Project 1.1 */
 	bool in_sleep;		 // The thread is sleeping!
 	int64_t sleep_until; // If the thread is sleeping, this variable mark the wake-up time
-		/* Add for Project 1.2 */
+	/* Add for Project 1.2 */
 	int priority_base; // The base priority before donation, it's the "True Priority"
 	int priority_used;// The priority that the thread used in comparison, it's the "Effective Priority"
 	struct list donaters; // The list of donaters
@@ -158,9 +158,9 @@ bool compare_thread_priority(
 );
 
 /* Project 1.3. BSD4.4 Scheduler */
-void Update_load_avg(void);
-void Update_recent_cpu(struct thread*, void*);
-void Update_Priority_naive(struct thread*);
-void Update_Priority_mlfqs(struct thread*);
+void update_load_avg(void);
+void update_recent_cpu(struct thread*, void*);
+void update_priority_naive(struct thread*);
+void update_priority_mlfqs(struct thread*);
 
 #endif /* threads/thread.h */
