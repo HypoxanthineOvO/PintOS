@@ -172,10 +172,7 @@ thread_print_stats(void)
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
-tid_t
-thread_create(const char* name, int priority,
-	thread_func* function, void* aux)
-{
+tid_t thread_create(const char* name, int priority, thread_func* function, void* aux) {
 	struct thread* t;
 	struct kernel_thread_frame* kf;
 	struct switch_entry_frame* ef;
@@ -230,9 +227,7 @@ thread_create(const char* name, int priority,
    This function must be called with interrupts turned off.  It
    is usually a better idea to use one of the synchronization
    primitives in synch.h. */
-void
-thread_block(void)
-{
+void thread_block(void) {
 	ASSERT(!intr_context());
 	ASSERT(intr_get_level() == INTR_OFF);
 
@@ -248,9 +243,7 @@ thread_block(void)
    be important: if the caller had disabled interrupts itself,
    it may expect that it can atomically unblock a thread and
    update other data. */
-void
-thread_unblock(struct thread* t)
-{
+void thread_unblock(struct thread* t) {
 	enum intr_level old_level;
 
 	ASSERT(is_thread(t));
@@ -272,9 +265,7 @@ thread_name(void)
 /* Returns the running thread.
    This is running_thread() plus a couple of sanity checks.
    See the big comment at the top of thread.h for details. */
-struct thread*
-	thread_current(void)
-{
+struct thread* thread_current(void) {
 	struct thread* t = running_thread();
 
 	/* Make sure T is really a thread.
@@ -305,11 +296,28 @@ thread_exit(void)
 #ifdef USERPROG
 	process_exit();
 #endif
+	intr_disable();
+	struct thread* cur = thread_current();
+	printf ("%s: exit(%d)\n",thread_name(), thread_current()->exit_code);
+	cur->child->exit_code = cur->exit_code;
+	sema_up(&cur->child->sema);
+	file_close(cur->file_opened);
 
+	struct list* file_list = &cur->file_list;
+	struct list_elem* e;
+		
+	while(!list_empty(file_list)){
+		e = list_pop_front(file_list);
+		struct file_of_thread* file_of_thread = list_entry(e, struct file_of_thread, file_elem);
+		acquire_file_lock();
+		file_close(file_of_thread->file);
+		release_file_lock();
+		list_remove(e);
+		free(file_of_thread);
+	}
 	/* Remove thread from all threads list, set our status to dying,
 	   and schedule another process.  That process will destroy us
 	   when it calls thread_schedule_tail(). */
-	intr_disable();
 	list_remove(&thread_current()->allelem);
 	thread_current()->status = THREAD_DYING;
 	schedule();
@@ -493,6 +501,7 @@ init_thread(struct thread* t, const char* name, int priority)
 	t->start_success = true;
 	t->exit_code = 0;
 	t->now_fd = 0;
+	t->file_opened = NULL;
 #endif
 
 	old_level = intr_disable();

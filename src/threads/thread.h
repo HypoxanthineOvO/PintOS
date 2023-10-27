@@ -133,7 +133,8 @@ struct thread
 
 	// Files
 	int now_fd;
-	struct list file_list; // List of files	
+	struct list file_list; // List of files
+	struct file* file_opened; // File opened by thread
 #endif
 
 	/* Owned by thread.c. */
