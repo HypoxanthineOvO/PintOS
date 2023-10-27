@@ -53,11 +53,11 @@ tid_t process_execute(const char *cmd_org)
 	tid = thread_create(exe_name, PRI_DEFAULT, start_process, command);
 	//sema_init(&thread_current()->sema, 0);
 	//sema_down(&thread_current()->sema);
-	if (tid == TID_ERROR){
-		palloc_free_page(command);	
+		if (tid == TID_ERROR){
+palloc_free_page(command);	
 		return tid;	
 	}
-
+		
 	return tid;
 }
 
@@ -78,12 +78,11 @@ static void start_process(void *file_name_)
 
 	struct thread* current_thread = thread_current();
 	if(success){
-		//sema_up(&current_thread->sema);
+		// TODO
 	}
 	else{
-		palloc_free_page(command);
+		//palloc_free_page(command);
 		current_thread->exit_code = -1;
-		//sema_up(&current_thread->sema);
 		thread_exit();
 	}
 	/* Start the user process by simulating a return from an
@@ -116,8 +115,8 @@ int process_wait(tid_t child_tid) {
 	){
 		child = list_entry(e, struct user_thread, elem);
 		if (child->id == child_tid){
-			if(child->success == 0){
-				child->success = 1;
+			if(child->success == false){
+				child->success = true;
 				sema_down(&child->sema);
 				break;
 			}
@@ -143,23 +142,6 @@ void process_exit(void) {
 	   to the kernel-only page directory. */
 	pd = cur->pagedir;
 	if (pd != NULL) {
-		
-		printf ("%s: exit(%d)\n",thread_name(), thread_current()->exit_code);
-		cur->child->exit_code = cur->exit_code;
-		sema_up(&cur->child->sema);
-
-		struct list* file_list = &cur->file_list;
-		struct list_elem* e;
-		for(
-			e = list_begin(file_list);
-			e != list_end(file_list);
-			e = list_next(e)
-		){
-			struct file_of_thread* file_of_thread = list_entry(e, struct file_of_thread, file_elem);
-			file_close(file_of_thread->file);
-			list_remove(e);
-			free(file_of_thread);
-		}
 		/* Correct ordering here is crucial.  We must set
 		   cur->pagedir to NULL before switching page directories,
 		   so that a timer interrupt can't switch back to the
@@ -282,13 +264,13 @@ bool load(const char *command, void (**eip)(void), void **esp)
 	exe_name = strtok_r(exe_name, " ", &save_ptr);
 
 	/* Open executable file. */
-	file = filesys_open(exe_name);
+		file = filesys_open(exe_name);
 	if (file == NULL)
 	{
 		printf("load: %s: open failed\n", exe_name);
 		goto done;
 	}
-
+	
 	/* Read and verify executable header. */
 	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\1\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 3 || ehdr.e_version != 1 || ehdr.e_phentsize != sizeof(struct Elf32_Phdr) || ehdr.e_phnum > 1024)
 	{
@@ -369,7 +351,7 @@ bool load(const char *command, void (**eip)(void), void **esp)
 done:
 	/* We arrive here whether the load is successful or not. */
 	file_close(file);
-	return success;
+		return success;
 }
 
 /* load() helpers. */
