@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Project1.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="cs130-project-1-design-document">CS130 Project 1: Design Document</h1>
+<h2 id="group">Group</h2>
+<blockquote>
+<p>Fill in the names and email addresses of your group members.</p>
+</blockquote>
+<ul>
+<li>He Yunxiang <a href="mailto:heyx1@shanghaitech.edu.cn">heyx1@shanghaitech.edu.cn</a></li>
+<li>Fan Yicheng <a href="mailto:fanych1@shanghaitech.edu.cn">fanych1@shanghaitech.edu.cn</a></li>
+</ul>
+<h2 id="preliminaries">Preliminaries</h2>
+<blockquote>
+<p>If you have any preliminary comments on your submission, notes for the TAs, or extra credit, please give them here.</p>
+</blockquote>
+<blockquote>
+<p>Please cite any offline or online sources you consulted while preparing your submission, other than the Pintos documentation, course text, lecture notes, and course staff.</p>
+</blockquote>
+<h2 id="alarm-clock">Alarm Clock</h2>
+<h3 id="data-structures">Data Structures</h3>
+<h4 id="a1">A1</h4>
+<blockquote>
+<p>Copy here the declaration of each new or changed struct or struct member, global or static variable, `typedef', or enumeration.  Identify the purpose of each in 25 words or less.</p>
+</blockquote>
+<pre class="hljs"><code><div><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">thread</span> {</span>
+    ...
+    <span class="hljs-comment">/* Add for Project 1.1 */</span>
+	<span class="hljs-keyword">bool</span> in_sleep;		 <span class="hljs-comment">// Flag of thread is sleeping!</span>
+	<span class="hljs-keyword">int64_t</span> sleep_until; <span class="hljs-comment">// If the thread is sleeping, this variable mark the wake-up time</span>
+    ...
+}
+</div></code></pre>
+<h3 id="algorithms">Algorithms</h3>
+<h4 id="a2">A2</h4>
+<blockquote>
+<p>Briefly describe what happens in a call to timer_sleep(), including the effects of the timer interrupt handler.</p>
+</blockquote>
+<p>In timer_sleep, we:</p>
+<ol>
+<li>Disable Interrupt for operating threads</li>
+<li>Setting the current thread's wating parameters</li>
+<li>Block the current thread</li>
+<li>Re-Enable the interrupts.</li>
+</ol>
+<h4 id="a3">A3</h4>
+<blockquote>
+<p>What steps are taken to minimize the amount of time spent in the timer interrupt handler?</p>
+</blockquote>
+<p>In the <code>timer_interrupt</code>, we invoke <code>thread_foreach</code> to perform <code>wake_up_check</code> on each thread, which can wake up all the threads that need to be awakened in a stable $O(n)$ time.</p>
+<h3 id="synchronization">Synchronization</h3>
+<h4 id="a4">A4</h4>
+<blockquote>
+<p>How are race conditions avoided when multiple threads call <code>timer_sleep()</code> simultaneously?</p>
+</blockquote>
+<p>We disable interrupt immediately when we call <code>timer_sleep</code>, so the interrupt handler will not be called when we do timer_sleep operations. That makes no simutaneously operation.</p>
+<h4 id="a5">A5</h4>
+<blockquote>
+<p>How are race conditions avoided when a timer interrupt occurs during a call to timer_sleep()?</p>
+</blockquote>
+<p>We disable interrupt immediately when we call <code>timer_sleep</code>, so timer interrupt handler will not be called during we execute <code>timer_sleep</code>.</p>
+<h3 id="rationable">Rationable</h3>
+<h4 id="a6">A6</h4>
+<blockquote>
+<p>Why did you choose this design?  In what ways is it superior to another design you considered?</p>
+</blockquote>
+<p>We have considered maintaining a priority queue to achieve $O(1)$ wake-up for threads, or separately maintaining a 'sleeping_thread' list. However, considering that the number of threads in the system usually does not exceed the magnitude of $10^2$, even with an $O(n)$ scanning algorithm, its performance is already sufficient, and its constant factor is small enough. Therefore, we have chosen the simplest and most intuitive implementation approach, which is to iterate through all threads in the timer_interrupt, minimizing our development time.</p>
+<h2 id="priority-scheduling">Priority Scheduling</h2>
+<h3 id="data-structures">Data Structures</h3>
+<h4 id="b1">B1</h4>
+<blockquote>
+<p>Copy here the declaration of each new or changed struct or struct member, global or static variable, typedef, or enumeration.  Identify the purpose of each in 25 words or less.</p>
+</blockquote>
+<pre class="hljs"><code><div><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">thread</span>{</span>
+    ...
+	<span class="hljs-comment">/* Add for Project 1.2 */</span>
+	<span class="hljs-keyword">int</span> priority_base; <span class="hljs-comment">// The base priority before donation, it's the "True Priority"</span>
+	<span class="hljs-keyword">int</span> priority_used;<span class="hljs-comment">// The priority that the thread used in comparison, it's the "Effective Priority"</span>
+	<span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list</span> <span class="hljs-title">donaters</span>;</span> <span class="hljs-comment">// The list of donaters</span>
+	<span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">thread</span>* <span class="hljs-title">donatee</span>;</span> <span class="hljs-comment">// The thread that the current thread donate to</span>
+	<span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">list_elem</span> <span class="hljs-title">donatee_elem</span>;</span> <span class="hljs-comment">// The list element of the donatee</span>
+    ...
+}
+</div></code></pre>
+<p>Noticed that we use priority_after_donation to replace original priority.</p>
+<h4 id="b2">B2</h4>
+<p>Explain the data structure used to track priority donation. Use ASCII art to diagram a nested donation.  (Alternately, submit a <code>.png</code> file.)</p>
+<ul>
+<li>The <code>priority_base</code> is the base priority of the thread, which is the priority of the thread before donation.</li>
+<li>The <code>priority_used</code> is the priority that the thread used in comparison, which is the priority of the thread after donation.</li>
+<li>The <code>donaters</code> is the list of donaters of the thread.</li>
+<li>The <code>donatee</code> is the thread that the current thread donate to.</li>
+<li>The <code>donatee_elem</code> is the list element of the donatee, used in donatee's donaters list.</li>
+</ul>
+<p><img src="file:///home/pintos/heyx1-fanych1/Document/NestDonation.png" alt=""></p>
+<h3 id="algorithms">Algorithms</h3>
+<h4 id="b3">B3</h4>
+<p>How do you ensure that the highest priority thread waiting for a lock, semaphore, or condition variable wakes up first?</p>
+<ul>
+<li>For <code>samephore</code>:
+<ul>
+<li>Iterate through <code>sema-&gt;waiters</code> to get the thread with maximum priority</li>
+<li>Unblock that thread.</li>
+<li>Call <code>thread_yield()</code> because the current thread may be not that thread with maximum priority.</li>
+</ul>
+</li>
+<li>For <code>lock</code>:
+<ul>
+<li>The lock is implemented with sema. So, we only need call <code>sema_up(&amp;lock-&gt;semaphore)</code> to choose the thread with maximum priority.</li>
+</ul>
+</li>
+<li>For Condition Variable:
+<ul>
+<li>When <code>conda.signal</code> call the <code>sema_up</code>, we use our <code>list_pop_max</code> to sema up the waiter with maximum priority.</li>
+</ul>
+</li>
+</ul>
+<h4 id="b4">B4</h4>
+<p>Describe the sequence of events when a call to lock_acquire() causes a priority donation.  How is nested donation handled?</p>
+<ol>
+<li>Disable the interrupt.</li>
+<li>If the lock are available(i.e. no lock holder), skip the donation check.
+<ul>
+<li>Otherwise, do priority donation by run <code>Donation_At_LockAcquire</code>.</li>
+</ul>
+</li>
+<li>The current thread is added to the list of donators (donaters) of the <code>lock-&gt;holder</code>.
+<ul>
+<li>This indicates that the current thread is willing to donate its priority to the lock holder.</li>
+</ul>
+</li>
+<li>Do donation in a while-loop.
+<ul>
+<li>Set the <code>lock-&gt;holder</code> as the donatee</li>
+<li>Donate the priority from the current thread to the donatee</li>
+<li>If the donatee are still have a donatee and the donatee's priority is lower than the current thread, continue the donation. After the donation, the donatee will be the donatee's donatee.</li>
+</ul>
+</li>
+<li>Call <code>sema_down</code> to acquire the lock</li>
+<li>set the current thread as <code>lock-&gt;holder</code></li>
+<li>Re-Enable the interrupt as old_status.</li>
+</ol>
+<h4 id="b5">B5</h4>
+<p>Describe the sequence of events when lock_release() is called on a lock that a higher-priority thread is waiting for.</p>
+<ol>
+<li>Disable the interrupt.</li>
+<li>Get donaters as the lock's sema's waiters.</li>
+<li>Run <code>ResetDonatee</code> for every donater in the donaters.
+<ul>
+<li>Remove the current thread from the donater's donaters list.</li>
+</ul>
+</li>
+<li>Run <code>Update_Priority_Naive</code> for current thread.
+<ul>
+<li>Reset the <code>priority_used</code> to its <code>priority_base</code>.</li>
+<li>Redo the donation that set the <code>priority_used</code> to the maximum priority of its donaters.</li>
+</ul>
+</li>
+<li>Call <code>sema_up</code> to release the lock.</li>
+<li>Re-Enable the interrupt as old_status.</li>
+<li>Call <code>thread_yield</code> to yield the CPU to the thread with maximum priority.</li>
+</ol>
+<h3 id="synchronization">Synchronization</h3>
+<h4 id="b6">B6</h4>
+<p>Describe a potential race in <code>thread_set_priority()</code> and explain how your implementation avoids it.  Can you use a lock to avoid this race?</p>
+<p>In the function <code>thread_set_priority()</code>, there is a potential race condition due to the use of <code>donaters</code> to re-calculate priority. This list is only modified within the <code>lock_release()</code> and <code>lock_acquire()</code> functions. If proper synchronization measures are not taken, multiple threads may concurrently access and modify the donator_list, leading to a race condition where inconsistent or incorrect priority values may be set for the thread.</p>
+<p>Noticed that in both <code>lock_acquire()</code> and <code>lock_release()</code>, we disable interrupt to avoid race conditions. So the <code>thread_set_priority()</code> have no potential race.</p>
+<h3 id="rationale">Rationale</h3>
+<h4 id="b7">B7</h4>
+<p>Why did you choose this design?  In what ways is it superior to another design you considered?</p>
+<ol>
+<li>To handle <code>thread_set_priority</code> correctly, we have to track the <code>donaters</code> of the thread. So we add list <code>donaters</code> and list element <code>donatee_elem</code> to the thread struct.</li>
+<li>To handle chain donation, we add a donatee to the thread struct to track the donatee of the thread.</li>
+<li>We still use list to track the donaters of the thread. So we implement <code>list_pop_max</code> to pop out the thread with maximum priority.</li>
+</ol>
+<h2 id="advanced-scheduler">Advanced Scheduler</h2>
+<h3 id="data-structures">Data Structures</h3>
+<h4 id="c1">C1</h4>
+<p>Copy here the declaration of each new or changed struct or struct member, global or static variable, typedef, or enumeration.  Identify the purpose of each in 25 words or less.</p>
+<pre class="hljs"><code><div><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">thread</span>{</span>
+    ...
+	<span class="hljs-comment">/* Add for Project 1.3 */</span>
+	<span class="hljs-keyword">int</span> nice; <span class="hljs-comment">// The nice value of thread, -20 &lt;= nice &lt;= 20</span>
+	FixedPoint32 recent_cpu; <span class="hljs-comment">// A Fixed Point Value record the recent CPU time.</span>
+    ...
+}
+</div></code></pre>
+<h4 id="algorithms">Algorithms</h4>
+<h4 id="c2">C2</h4>
+<p>Suppose threads A, B, and C have nice values 0, 1, and 2.  Each has a recent_cpu value of 0.  Fill in the table below showing the scheduling decision and the priority and recent_cpu values for each thread after each given number of timer ticks:</p>
+<table>
+<thead>
+<tr>
+<th>Timer Ticks</th>
+<th>RecentCPU-A</th>
+<th>RecentCPU-B</th>
+<th>RecentCPU-C</th>
+<th>Priority-A</th>
+<th>Priority-B</th>
+<th>Priority-C</th>
+<th>Thread To Run</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>63</td>
+<td>61</td>
+<td>59</td>
+<td>A</td>
+</tr>
+<tr>
+<td>4</td>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>62</td>
+<td>61</td>
+<td>59</td>
+<td>A</td>
+</tr>
+<tr>
+<td>8</td>
+<td>8</td>
+<td>0</td>
+<td>0</td>
+<td>61</td>
+<td>61</td>
+<td>59</td>
+<td>A</td>
+</tr>
+<tr>
+<td>12</td>
+<td>12</td>
+<td>0</td>
+<td>0</td>
+<td>60</td>
+<td>61</td>
+<td>59</td>
+<td>B</td>
+</tr>
+<tr>
+<td>16</td>
+<td>12</td>
+<td>4</td>
+<td>0</td>
+<td>60</td>
+<td>60</td>
+<td>59</td>
+<td>B</td>
+</tr>
+<tr>
+<td>20</td>
+<td>12</td>
+<td>8</td>
+<td>0</td>
+<td>60</td>
+<td>59</td>
+<td>59</td>
+<td>A</td>
+</tr>
+<tr>
+<td>24</td>
+<td>16</td>
+<td>8</td>
+<td>0</td>
+<td>59</td>
+<td>59</td>
+<td>59</td>
+<td>A</td>
+</tr>
+<tr>
+<td>28</td>
+<td>20</td>
+<td>8</td>
+<td>0</td>
+<td>58</td>
+<td>59</td>
+<td>59</td>
+<td>B</td>
+</tr>
+<tr>
+<td>32</td>
+<td>20</td>
+<td>12</td>
+<td>0</td>
+<td>58</td>
+<td>58</td>
+<td>59</td>
+<td>C</td>
+</tr>
+<tr>
+<td>36</td>
+<td>20</td>
+<td>12</td>
+<td>4</td>
+<td>58</td>
+<td>58</td>
+<td>58</td>
+<td>C</td>
+</tr>
+</tbody>
+</table>
+<h4 id="c3">C3</h4>
+<p>Did any ambiguities in the scheduler specification make values in the table uncertain?  If so, what rule did you use to resolve them?  Does this match the behavior of your scheduler?</p>
+<ul>
+<li>Yes.</li>
+<li>The specification do not mention how to choose thread when there are multiple threads with maximum priority.
+<ul>
+<li>We choose the current thread to run in this situation.</li>
+</ul>
+</li>
+<li>This may not match the behavior of our scheduler, because our scheduler will choose the first thread with maximum priority in the ready list by our <code>list_pop_max</code>.</li>
+</ul>
+<h4 id="c4">C4</h4>
+<p>How is the way you divided the cost of scheduling between code inside and outside interrupt context likely to affect performance?</p>
+<ul>
+<li>Inside interrupt context:
+<ul>
+<li>We update recent_cpu every tick.</li>
+<li>We update priority and get the thread with maximum priority every 4 ticks.</li>
+<li>This will cost $O(n)$ time.</li>
+<li>If the number of threads in the system usually does not exceed the magnitude of $10^2$, the performance is already sufficient, and its constant factor is small enough.</li>
+</ul>
+</li>
+<li>Outside interrupt context:
+<ul>
+<li>We do nothing.</li>
+</ul>
+</li>
+</ul>
+<h3 id="rationale">Rationale</h3>
+<h4 id="c5">C5</h4>
+<p>Briefly critique your design, pointing out advantages and disadvantages in your design choices.  If you were to have extra time to work on this part of the project, how might you choose to refine or improve your design?</p>
+<ul>
+<li>Advantages:
+<ul>
+<li>Our implementation approach is simple and straightforward, which significantly saves development time.</li>
+</ul>
+</li>
+<li>Disadvantages:
+<ul>
+<li>Our implementation approach is simple and straightforward, which may lead to a decrease in performance.</li>
+</ul>
+</li>
+<li>If we have extra time to work on this part of the project:
+<ul>
+<li>(For Project 1.1) we may choose to implement a priority queue to achieve $O(1)$ wake-up for threads, or separately maintain a 'sleeping_thread' list. This can improve the performance of the scheduler.</li>
+<li>We may only update the priority of the thread when the priority of the thread is changed, which can improve the performance of the scheduler.</li>
+</ul>
+</li>
+</ul>
+<h4 id="c6">C6</h4>
+<p>The assignment explains arithmetic for fixed-point math in detail, but it leaves it open to you to implement it.  Why did you decide to implement it the way you did?  If you created an abstraction layer for fixed-point math, that is, an abstract data type and/or a set of functions or macros to manipulate fixed-point numbers, why did you do so?  If not, why not?</p>
+<ul>
+<li>I implemented it strictly according to the requirements of the document.</li>
+<li>According to my personal preference, I use typedef to define a new type <code>FixedPoint32</code> to represent a fixed-point number. I also use <code>#define</code> to define some macros to make the code more readable.</li>
+<li>Then, we strictly differentiate the usage of the type names FixPoint32 and int32, and we annotate all operations related to int in the function names.</li>
+</ul>
+<h2 id="survey-questions">SURVEY QUESTIONS</h2>
+<blockquote>
+<p>Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.</p>
+</blockquote>
+<ul>
+<li>
+<p>In your opinion, was this assignment, or any one of the three problems in it, too easy or too hard?  Did it take too long or too little time?</p>
+<ul>
+<li>The second problem is the hardest one. But totally speaking, this assignment is not too hard.</li>
+<li>I spend a lot of time on the second problem, but I think it's worth it.</li>
+</ul>
+</li>
+<li>
+<p>Did you find that working on a particular part of the assignment gave you greater insight into some aspect of OS design?</p>
+<ul>
+<li>Yes! I have a deeper understanding of the priority donation mechanism and the priority scheduling mechanism.</li>
+</ul>
+</li>
+<li>
+<p>Is there some particular fact or hint we should give students in future quarters to help them solve the problems?  Conversely, did you find any of our guidance to be misleading?</p>
+<ul>
+<li>No.</li>
+</ul>
+</li>
+<li>
+<p>Do you have any suggestions for the TAs to more effectively assist students, either for future quarters or the remaining projects?</p>
+<ul>
+<li>No.</li>
+</ul>
+</li>
+<li>
+<p>Any other comments?</p>
+<ul>
+<li>No.</li>
+</ul>
+</li>
+</ul>
+
+</body>
+</html>
