@@ -76,27 +76,27 @@ struct file_of_thread* get_file_by_fd(struct list* file_list, int fd){
 
 /* Systemcall Function Implementation */
 // Halt
-void halt(void){
+void syscall_halt(void){
 	shutdown_power_off();
 }
 // Exit
-void exit(int status){
+void syscall_exit(int status){
 	struct thread* current_thread = thread_current();
 	current_thread->exit_code = status;
 	thread_exit();
 }
 // Execute
-int exec(const char* cmd_line){
+int syscall_exec(const char* cmd_line){
 	int id = process_execute(cmd_line);
 	return id;
 }
 // Wait
-int wait(int pid){
+int syscall_wait(int pid){
 	return process_wait(pid);
 }
 
 // Create
-bool create(const char* file, unsigned initial_size){
+bool syscall_create(const char* file, unsigned initial_size){
 	acquire_file_lock();
 	bool ret_val = filesys_create(file, initial_size);
 	release_file_lock();
@@ -104,7 +104,7 @@ bool create(const char* file, unsigned initial_size){
 }
 
 // Remove
-bool remove(const char* file){
+bool syscall_remove(const char* file){
 	acquire_file_lock();
 	bool ret_val = filesys_remove(file);
 	release_file_lock();
@@ -112,7 +112,7 @@ bool remove(const char* file){
 }
 
 // Open
-int open(const char* file){
+int syscall_open(const char* file){
 	// Use filesys_open
 	acquire_file_lock();
 	struct file* file_ptr = filesys_open(file);
@@ -130,7 +130,7 @@ int open(const char* file){
 }
 
 // Filesize
-int filesize(int fd){
+int syscall_filesize(int fd){
 	int ret_val = -1;
 	// Find file by id
 	struct list_elem* e;
@@ -142,22 +142,23 @@ int filesize(int fd){
 		acquire_file_lock();
 		ret_val = file_length(file_of_thread->file);
 		release_file_lock();
+		return ret_val;
 	}
 	else{
-		exit_special();
+		return -1;
 	}
-	//return ret_val;
+	NOT_REACHED();
 }
 
 // Read
-int read(int fd, void* buffer, unsigned length){
+int syscall_read(int fd, uint8_t* buffer, unsigned length){
 	if (!check_pt (buffer, 1) || !check_pt (buffer + length, 1)){
     	exit_special ();
 	}
 	if (fd == 0){
 		// Read from Console
 		for (int i = 0; i < length; i++){
-			((char*)buffer)[i] = input_getc();
+			buffer[i] = input_getc();
 		}
 		return length;
 	}
@@ -171,14 +172,14 @@ int read(int fd, void* buffer, unsigned length){
 			acquire_file_lock();
 			ret_val = file_read(file_of_thread->file, buffer, length);
 			release_file_lock();
+			return ret_val;
 		}
-		return ret_val;
+		else return -1;
 	}
-	return -1;
+	NOT_REACHED();
 }
-
 // Write
-int write(int fd, const void* buffer, unsigned length){
+int syscall_write(int fd, const void* buffer, unsigned length){
 	if (fd == 1){
 		// Write to Console
 		putbuf((const char*)buffer, length);
@@ -201,7 +202,7 @@ int write(int fd, const void* buffer, unsigned length){
 }
 
 // Seek
-void seek(int fd, unsigned int position){
+void syscall_seek(int fd, unsigned int position){
 	// Find file by id
 	struct list_elem* e;
 	struct thread* current_thread = thread_current();
@@ -217,7 +218,7 @@ void seek(int fd, unsigned int position){
 }
 
 // Tell
-unsigned tell(int fd){
+unsigned syscall_tell(int fd){
 	unsigned ret_val = -1;
 	// Find file by id
 	struct list_elem* e;
@@ -235,7 +236,7 @@ unsigned tell(int fd){
 }
 
 // Close
-void close(int fd){
+void syscall_close(int fd){
 	// Find file by id
 	struct list_elem* e;
 	struct thread* current_thread = thread_current();
@@ -267,77 +268,71 @@ static void syscall_handler(struct intr_frame* f) {
 	}
 	switch (sys_code) {
 	case SYS_HALT:
-		halt();
+		syscall_halt();
 		break;
 	case SYS_EXIT:
 		check_addr(user_pointer + 1);
 		*user_pointer++;
-		exit(*user_pointer);
+		syscall_exit(*user_pointer);
 		break;
 	case SYS_EXEC:
 		check_addr(user_pointer + 1);
 		check_addr(*(user_pointer + 1));
 		*user_pointer++;
-		f->eax = exec((char*)*(user_pointer));
+		f->eax = syscall_exec((char*)*(user_pointer));
 		break;
 	case SYS_WAIT:
 		check_addr(user_pointer + 1);
 		*user_pointer++;
-		f->eax = wait(*user_pointer);
+		f->eax = syscall_wait(*user_pointer);
 		break;
 	case SYS_CREATE:
 		check_addr(user_pointer + 5);
 		check_addr(*(user_pointer + 4));
 		*user_pointer++;
-		f->eax = create((const char *)*(user_pointer), *(user_pointer + 1));
+		f->eax = syscall_create((const char *)*(user_pointer), *(user_pointer + 1));
 		break;
 	case SYS_REMOVE:
 		check_addr(user_pointer + 1);
 		check_addr(*(user_pointer + 1));
 		*user_pointer++;
-		f->eax = remove((const char *)*user_pointer);
+		f->eax = syscall_remove((const char *)*user_pointer);
 		break;
 	case SYS_OPEN:
 		check_addr(user_pointer + 1);
 		check_addr(*(user_pointer + 1));
 		*user_pointer++;
-		f->eax = open(*user_pointer);
+		f->eax = syscall_open(*user_pointer);
 		break;
 	case SYS_FILESIZE:
 		check_addr(user_pointer + 1);
 		*user_pointer++;
-		f->eax = filesize(*user_pointer);
+		f->eax = syscall_filesize(*user_pointer);
 		break;
 	case SYS_READ:
-		check_addr(user_pointer + 1);
-		check_addr(*(user_pointer + 1));
-		check_addr(user_pointer + 2);
-		check_addr(*(user_pointer + 2));
-		check_addr(user_pointer);
-		check_addr(*(user_pointer));
 		*user_pointer++;
-		f->eax = read(*(user_pointer), *(user_pointer + 1), *(user_pointer + 2));
+		f->eax = syscall_read(*(user_pointer), *(user_pointer + 1), *(user_pointer + 2));
 		break;
 	case SYS_WRITE:
 		check_addr(user_pointer + 7);
 		check_addr(*(user_pointer + 6));
 		*user_pointer++;
-		f->eax = write(*(user_pointer), *(user_pointer + 1), *(user_pointer + 2));
+		f->eax = syscall_write(*(user_pointer), *(user_pointer + 1), *(user_pointer + 2));
 		break;
 	case SYS_SEEK:
 		check_addr(user_pointer + 5);
 		*user_pointer++;
-		seek(*(user_pointer), *(user_pointer + 1));
+		syscall_seek(*(user_pointer), *(user_pointer + 1));
 		break;
 	case SYS_TELL:
 		check_addr(user_pointer + 1);
 		*user_pointer++;
-		f->eax = tell(*user_pointer);
+		f->eax = syscall_tell(*user_pointer);
 		break;
 	case SYS_CLOSE:
 		check_addr(user_pointer + 1);
 		*user_pointer++;
-		close(*user_pointer);
+		syscall_close(*user_pointer);
 		break;
 	default:
 		exit_special();

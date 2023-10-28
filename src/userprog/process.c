@@ -21,6 +21,8 @@
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
 
+
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -32,16 +34,9 @@ tid_t process_execute(const char *cmd_org)
 	/* Make a copy of FILE_NAME.
 	   Otherwise there's a race between the caller and load(). */
 	// Only Use cmd_org for this.
-	char *command = palloc_get_page(0);
-	if (command == NULL){
-		return TID_ERROR;		
-	}
+	char *command = malloc(strlen(cmd_org) + 1);
 	char *save_ptr, *exe_name = malloc(strlen(cmd_org) + 1);
-	// Check malloc
-	if(exe_name == NULL){
-		palloc_free_page(command);
-		return TID_ERROR;
-	}
+
 	strlcpy(command, cmd_org, PGSIZE);
 	strlcpy(exe_name, cmd_org, strlen(cmd_org) + 1);
 	// Get Executable Name
@@ -51,18 +46,38 @@ tid_t process_execute(const char *cmd_org)
 	// Name is exe_name, command is total string.
 	// e.g. 'echo x': exe_name echo; command echo x
 	tid = thread_create(exe_name, PRI_DEFAULT, start_process, command);
-	//sema_init(&thread_current()->sema, 0);
-	//sema_down(&thread_current()->sema);
-		if (tid == TID_ERROR){
-palloc_free_page(command);	
+	free(exe_name);
+	if (tid == TID_ERROR){
+		free(command);
 		return tid;	
 	}
-		
+	/* Sema down the parent process, waiting for user_thread */
+	sema_down(&thread_current()->sema);
+	if (!thread_current()->start_success) return TID_ERROR;
+
 	return tid;
+}
+void
+push_argument(void** esp, int argc, int argv[]) {
+	*esp = (int)*esp & 0xfffffffc;
+	*esp -= 4;
+	*(int*)*esp = 0;
+	for (int i = argc - 1; i >= 0; i--)
+	{
+		*esp -= 4;
+		*(int*)*esp = argv[i];
+	}
+	*esp -= 4;
+	*(int*)*esp = (int)*esp + 4;
+	*esp -= 4;
+	*(int*)*esp = argc;
+	*esp -= 4;
+	*(int*)*esp = 0;
 }
 
 /* A thread function that loads a user process and starts it
    running. */
+
 static void start_process(void *file_name_)
 {
 	char *command = file_name_;
@@ -78,11 +93,13 @@ static void start_process(void *file_name_)
 
 	struct thread* current_thread = thread_current();
 	if(success){
-		// TODO
+		//push_arguments_to_stack(&if_.esp, command);
+		thread_current()->parent->start_success = true;
+		sema_up(&thread_current()->parent->sema);
 	}
 	else{
-		//palloc_free_page(command);
-		current_thread->exit_code = -1;
+		thread_current()->parent->start_success = false;
+		sema_up(&thread_current()->parent->sema);
 		thread_exit();
 	}
 	/* Start the user process by simulating a return from an
@@ -128,11 +145,9 @@ int process_wait(tid_t child_tid) {
 	if(e == list_end(&current_thread->children_list)){
 		return -1;
 	}
-	int exit_code = child->exit_code;
 	list_remove(e);
-	return exit_code;
+	return child->exit_code;
 }
-
 /* Free the current process's resources. */
 void process_exit(void) {
 	struct thread *cur = thread_current();
@@ -233,7 +248,7 @@ struct Elf32_Phdr
 #define PF_W 2 /* Writable. */
 #define PF_R 4 /* Readable. */
 
-static bool setup_stack(void **esp, const char *command);
+static bool setup_stack(void **esp, const char* command);
 static bool validate_segment(const struct Elf32_Phdr *, struct file *);
 static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
 						 uint32_t read_bytes, uint32_t zero_bytes,
@@ -259,18 +274,20 @@ bool load(const char *command, void (**eip)(void), void **esp)
 	process_activate();
 
 	// Get Executable Name
+	acquire_file_lock();
 	char *save_ptr, *exe_name = malloc(strlen(command) + 1);
 	strlcpy(exe_name, command, strlen(command) + 1);
 	exe_name = strtok_r(exe_name, " ", &save_ptr);
 
 	/* Open executable file. */
-		file = filesys_open(exe_name);
+	file = filesys_open(exe_name);
 	if (file == NULL)
 	{
 		printf("load: %s: open failed\n", exe_name);
 		goto done;
 	}
-	
+	file_deny_write(file);
+	t->file_opened = file;
 	/* Read and verify executable header. */
 	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\1\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 3 || ehdr.e_version != 1 || ehdr.e_phentsize != sizeof(struct Elf32_Phdr) || ehdr.e_phnum > 1024)
 	{
@@ -350,10 +367,9 @@ bool load(const char *command, void (**eip)(void), void **esp)
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	file_close(file);
-		return success;
+	release_file_lock();
+	return success;
 }
-
 /* load() helpers. */
 
 static bool install_page(void *upage, void *kpage, bool writable);
@@ -462,88 +478,37 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 	return true;
 }
 
-// Push Argument
-// bool push_arguments_to_stack(void **esp, const char *command) {
-// 	char  *token, *save_ptr;
-// 	esp = PHYS_BASE;
-
-// 	// Check length
-// 	if (strlen(command) > 1024){
-// 		return false;
-// 	}
-
-// 	// Get Arguments in array first
-// 	int argc = 0;
-// 	int argv[128];
-// 	token = strtok_r(command, " ", &save_ptr); // Now, token is exe_name
-// 	while(token){
-// 		*esp = *esp - (strlen(token) - 1);
-// 		argv[argc++] = *esp;
-// 		memcpy(*esp, token, strlen(token) + 1);
-// 	}
-// 	argv[argc] = 0;
-// 	// Align
-// 	int res = (size_t)*esp % 4;
-// 	if(res != 0){
-// 		*esp = *esp - res;
-// 		memcpy(*esp, &argv[argc], res);
-// 	}
-// 	// Push argv
-// 	for(int i = argc; i >= 0; i--){
-// 		*esp = *esp - 4;
-// 		memcpy(*esp, &argv[i], 4);
-// 	}
-// 	// Push argv
-// 	int argv_addr = *esp;
-// 	*esp = *esp - 4;
-// 	memcpy(*esp, &argv_addr, 4);
-// 	// Push argc
-// 	*esp = *esp - 4;
-// 	memcpy(*esp, &argc, 4);
-// 	// Push return address
-// 	*esp = *esp - 4;
-// 	memcpy(*esp, &argv[argc], 4);
-	
-// 	return true;
-// }
-static bool
-push_arguments_to_stack(void** esp, const char* argument_string) {
-	uint8_t* top = PHYS_BASE;
-
-	unsigned int argument_length = strlen(argument_string) + 1;
-	if (argument_length > 1024)
-		return false;
-	memcpy(top -= argument_length, argument_string, argument_length);
-	char* stack_argument_string = (char*)top;
-
-	unsigned int argc = 0;
+static bool push_arguments_to_stack(void** esp, const char* argument_string){
+	int argc = 0, argv[128];
 	char* save_ptr;
-	for (char* token = strtok_r(stack_argument_string, " ", &save_ptr);
-		token != NULL; token = strtok_r(NULL, " ", &save_ptr))
-	{
-		*(char**)(top -= 4) = token;
-		argc++;
-	}
-	*(char**)(top -= 4) = NULL; /* The length of argv[] is argc + 1 */
-	char** argv = (char**)top;
-	/* Reverse argv[] */
-	for (char** front = argv, **back = argv + argc; front < back;
-		++front, --back)
-	{
-		char* t = *front;
-		*front = *back;
-		*back = t;
+	char* token = strtok_r(argument_string, " ", &save_ptr);
+	while(token){
+		*esp -= (strlen(token) + 1);
+		memcpy(*esp, token, strlen(token) + 1);
+		argv[argc++] = (int)*esp;
+		token = strtok_r(NULL, " ", &save_ptr);
 	}
 
-	*(char***)(top -= 4) = argv;
-	*(int*)(top -= 4) = argc;
-	*(int*)(top -= 4) = 0; /* Return address, never used */
-	*esp = top;
+	*esp = (int)*esp & 0xfffffffc;
+	*esp -= 4;
+	*(int*)*esp = 0;
+	for(int i = argc - 1; i >= 0; i--){
+		*esp -= 4;
+		*(int*)*esp = argv[i];
+	}
+	*esp -= 4;
+	*(int*)*esp =(int)*esp + 4;
+	*esp -= 4;
+	*(int*)*esp = argc;
+	*esp -= 4;
+	*(int*)*esp = 0;
 	return true;
 }
+
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
-static bool setup_stack(void **esp, const char *command) {
+// static bool setup_stack(void **esp, const char *command)
+static bool setup_stack(void **esp, const char* command) {
 	uint8_t *kpage;
 	bool success = false;
 
@@ -551,7 +516,7 @@ static bool setup_stack(void **esp, const char *command) {
 	if (kpage != NULL) {
 		success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
 		if (success) {
-			//*esp = PHYS_BASE - 12;
+			*esp = PHYS_BASE;
 			success = push_arguments_to_stack(esp, command);
 		}
 
