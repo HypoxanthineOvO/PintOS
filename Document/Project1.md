@@ -121,7 +121,7 @@ Describe the sequence of events when lock_release() is called on a lock that a h
 2. Get donaters as the lock's sema's waiters.
 3. Run `ResetDonatee` for every donater in the donaters.
    - Remove the current thread from the donater's donaters list.
-4. Run `Update_Priority_Naive` for current thread.
+4. Run `check_after_release` for current thread.
    - Reset the `priority_used` to its `priority_base`.
    - Redo the donation that set the `priority_used` to the maximum priority of its donaters.
 5. Call `sema_up` to release the lock.
