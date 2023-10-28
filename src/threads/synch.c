@@ -267,7 +267,7 @@ void lock_release(struct lock *lock)
 		);
 		lock->holder = NULL;
 		// Update Priority
-		update_priority_naive(thread_current());
+		check_after_release(thread_current());
 		sema_up(&lock->semaphore);
 		// Enable interrupt
 		intr_set_level(old_level);

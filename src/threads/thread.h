@@ -160,7 +160,7 @@ bool compare_thread_priority(
 /* Project 1.3. BSD4.4 Scheduler */
 void update_load_avg(void);
 void update_recent_cpu(struct thread*, void*);
-void update_priority_naive(struct thread*);
+void check_after_release(struct thread*);
 void update_priority_mlfqs(struct thread*);
 
 #endif /* threads/thread.h */

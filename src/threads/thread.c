@@ -372,7 +372,7 @@ void thread_set_priority(int new_priority) {
 	if (thread_mlfqs) return; // If thread_mlfqs. Use BSD Scheduler.
 	thread_current()->priority_base = new_priority;
 	// Update Priority in case of donation
-	update_priority_naive(thread_current());
+	check_after_release(thread_current());
 	thread_yield();
 }
 
@@ -668,7 +668,7 @@ void update_priority_mlfqs(struct thread* thread) {
 	thread->priority_used = priority;
 }
 
-void update_priority_naive(struct thread* thread) {
+void check_after_release(struct thread* thread) {
 	ASSERT(!thread_mlfqs);
 	// Reset priority_used as it's base
 	thread->priority_used = thread->priority_base;
