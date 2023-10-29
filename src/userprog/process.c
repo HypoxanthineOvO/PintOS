@@ -27,8 +27,7 @@ static bool load(const char *cmdline, void (**eip)(void), void **esp);
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
-tid_t process_execute(const char *cmd_org)
-{
+tid_t process_execute(const char *cmd_org) {
 	tid_t tid;
 
 	/* Make a copy of FILE_NAME.
@@ -56,23 +55,6 @@ tid_t process_execute(const char *cmd_org)
 	if (!thread_current()->start_success) return TID_ERROR;
 
 	return tid;
-}
-void
-push_argument(void** esp, int argc, int argv[]) {
-	*esp = (int)*esp & 0xfffffffc;
-	*esp -= 4;
-	*(int*)*esp = 0;
-	for (int i = argc - 1; i >= 0; i--)
-	{
-		*esp -= 4;
-		*(int*)*esp = argv[i];
-	}
-	*esp -= 4;
-	*(int*)*esp = (int)*esp + 4;
-	*esp -= 4;
-	*(int*)*esp = argc;
-	*esp -= 4;
-	*(int*)*esp = 0;
 }
 
 /* A thread function that loads a user process and starts it
