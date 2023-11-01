@@ -52,7 +52,7 @@ tid_t process_execute(const char *cmd_org) {
 	}
 	/* Sema down the parent process, waiting for user_thread */
 	sema_down(&thread_current()->sema);
-	if (!thread_current()->start_success) return TID_ERROR;
+	if (!thread_current()->success) return TID_ERROR;
 
 	return tid;
 }
@@ -75,12 +75,11 @@ static void start_process(void *file_name_)
 
 	struct thread* current_thread = thread_current();
 	if(success){
-		//push_arguments_to_stack(&if_.esp, command);
-		thread_current()->parent->start_success = true;
+		thread_current()->parent->success = true;
 		sema_up(&thread_current()->parent->sema);
 	}
 	else{
-		thread_current()->parent->start_success = false;
+		thread_current()->parent->success = false;
 		sema_up(&thread_current()->parent->sema);
 		thread_exit();
 	}
@@ -114,13 +113,10 @@ int process_wait(tid_t child_tid) {
 	){
 		child = list_entry(e, struct user_thread, elem);
 		if (child->id == child_tid){
-			if(child->success == false){
-				child->success = true;
+			if(child->active == false){
 				sema_down(&child->sema);
+				child->active = true;
 				break;
-			}
-			else{
-				return -1;
 			}
 		}
 	}

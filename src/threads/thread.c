@@ -199,7 +199,7 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
 		&t->child->elem
 	);
 	t->child->exit_code = UINT32_MAX;
-	t->child->success = false;
+	t->child->active = false;
 
 	/* Stack frame for kernel_thread(). */
 	kf = alloc_frame(t, sizeof * kf);
@@ -499,7 +499,7 @@ init_thread(struct thread* t, const char* name, int priority)
 	list_init(&t->children_list);
 	list_init(&t->file_list);
 	sema_init(&t->sema, 0);
-	t->start_success = true;
+	t->success = true;
 	t->exit_code = UINT32_MAX;
 	t->now_fd = 2;
 	t->file_opened = NULL;

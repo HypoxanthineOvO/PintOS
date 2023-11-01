@@ -49,15 +49,6 @@ void* check_addr(int const* vaddr) {
 	return ptr;
 }
 
-bool check_pt(void* pt, int size){
-	for(int i = 0; i < size; i++){
-		if(!is_user_vaddr(pt) || (pagedir_get_page(thread_current()->pagedir, pt) == NULL)){
-			return false;
-		}
-	}
-	return true;
-}
-
 struct file_of_thread* get_file_by_fd(struct list* file_list, int fd){
 	struct file_of_thread* file_of_thread = NULL;
 	struct list_elem* e;
@@ -152,9 +143,9 @@ int syscall_filesize(int fd){
 
 // Read
 int syscall_read(int fd, uint8_t* buffer, unsigned length){
-	if (!check_pt (buffer, 1) || !check_pt (buffer + length, 1)){
-    	exit_special ();
-	}
+	// if (!check_pt (buffer, 1) || !check_pt (buffer + length, 1)){
+    // 	exit_special ();
+	// }
 	if (fd == 0){
 		// Read from Console
 		for (int i = 0; i < length; i++){
@@ -311,6 +302,8 @@ static void syscall_handler(struct intr_frame* f) {
 		break;
 	case SYS_READ:
 		*user_pointer++;
+		check_addr(*(user_pointer + 1));
+		check_addr((*(user_pointer + 1)) + *(user_pointer + 2));
 		f->eax = syscall_read(*(user_pointer), *(user_pointer + 1), *(user_pointer + 2));
 		break;
 	case SYS_WRITE:

@@ -90,21 +90,20 @@ typedef int tid_t;
 
 struct user_thread {
 	int id;
-	bool success;
+	bool active;
 	struct list_elem elem;
 	struct semaphore sema;
 	int exit_code;
 };
 
-struct file_of_thread{
+struct file_of_thread {
 	int file_descriptor;
 	struct file* file;
 	struct list_elem file_elem;
 };
 
 
-struct thread
-{
+struct thread {
 	/* Owned by thread.c. */
 	tid_t tid;                          /* Thread identifier. */
 	enum thread_status status;          /* Thread state. */
@@ -127,7 +126,7 @@ struct thread
 
 	// Status Flags
 	int exit_code; // Exit Status of Thread
-	bool start_success;
+	bool success;
 	// Locks
 	struct semaphore sema; // Lock for thread
 
