@@ -199,7 +199,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
 		&t->child->elem
 	);
 	t->child->exit_code = UINT32_MAX;
-	t->child->active = false;
 
 	/* Stack frame for kernel_thread(). */
 	kf = alloc_frame(t, sizeof * kf);

@@ -171,6 +171,8 @@ int syscall_read(int fd, uint8_t* buffer, unsigned length){
 }
 // Write
 int syscall_write(int fd, const void* buffer, unsigned length){
+	check_addr(buffer);
+	check_addr(buffer + length - 1);
 	if (fd == 1){
 		// Write to Console
 		putbuf((const char*)buffer, length);
@@ -307,8 +309,9 @@ static void syscall_handler(struct intr_frame* f) {
 		f->eax = syscall_read(*(user_pointer), *(user_pointer + 1), *(user_pointer + 2));
 		break;
 	case SYS_WRITE:
-		check_addr(user_pointer + 7);
-		check_addr(*(user_pointer + 6));
+		check_addr(user_pointer + 1);
+		check_addr(user_pointer + 2);
+		check_addr(user_pointer + 3);
 		*user_pointer++;
 		f->eax = syscall_write(*(user_pointer), *(user_pointer + 1), *(user_pointer + 2));
 		break;

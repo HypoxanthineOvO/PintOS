@@ -113,11 +113,8 @@ int process_wait(tid_t child_tid) {
 	){
 		child = list_entry(e, struct user_thread, elem);
 		if (child->id == child_tid){
-			if(child->active == false){
-				sema_down(&child->sema);
-				child->active = true;
-				break;
-			}
+			sema_down(&child->sema);
+			break;
 		}
 	}
 	if(e == list_end(&current_thread->children_list)){

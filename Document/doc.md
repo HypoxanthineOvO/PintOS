@@ -137,7 +137,15 @@ The document:
 So if the wait have been called on a child thread, `active` would be set `true` and we will check it in `process_wait`. 
 
 ### B6: Any access to user program memory at a user-specified address can fail due to a bad pointer value.  Such accesses must cause the process to be terminated.  System calls are fraught with such accesses, e.g. a "write" system call requires reading the system call number from the user stack, then each of the call's three arguments, then an arbitrary amount of user memory, and any of these can fail at any point. This poses a design and error-handling problem: how do you best avoid obscuring the primary function of code in a morass of error-handling?  Furthermore, when an error is detected, how do you ensure that all temporarily allocated resources (locks, buffers, etc.) are freed?  In a few paragraphs, describe the strategy or strategies you adopted for managing these issues.  Give an example.
-
+- Following the document, we modified `page_fault()`  function's exception handler. If the page fault is occurred in kernel mode, instead of panicking, we set eax to -1 and set eip to eax because eax stores the address of the next instruction. Then we return to the next instruction and continue to execute.
+- In `syscall_handler()`, we use `check_addr()` to check the address of the system call number and the arguments. If any of them is invalid, we exit the thread.
+  - For each system call, we check the address of the system call number and the arguments. We modified the check object according to the system call type.
+- For Example: In `syscall_handler`, we do:
+  - Check `f->esp` by `check_addr`
+  - If `f->esp` is valid, we get the system call number by `get_user(f->esp)`. Assume the system call is `syscall_write`, it have 3 arguments.
+  - We will check `f->esp + 1`, `f->esp + 2`, `f->esp + 3` by `check_addr`.
+  - As it buffer, we need also check `buffer` and `buffer + length - 1` by `check_addr`.
+  - Then we do the system call.
 
 
 ## Synchronization
@@ -148,6 +156,17 @@ So if the wait have been called on a child thread, `active` would be set `true` 
 
 
 ### B8: Consider parent process P with child process C.  How do you ensure proper synchronization and avoid race conditions when P calls wait(C) before C exits?  After C exits?  How do you ensure that all resources are freed in each case?  How about when P terminates without waiting, before C exits?  After C exits?  Are there any special cases?
+
+#### How do you ensure proper synchronization and avoid race conditions when P calls wait(C) before C exits?
+- We call `sema_down(C->sema)` to let P wait for C.
+#### After C exits?
+- Noticed that if C exited, it will be remove from `children_list`. So if we can find C, it should be not exit.
+#### How do you ensure that all resources are freed in each case?
+- Our data structure are freed in `process_exit()`. No other resources need to be freed.
+####  How about when P terminates without waiting, before C exits?  
+- We call `sema_up(&C->sema)` to wake up C. So C can exit normally.
+#### After C exits?
+- Noticed that if C exited, it will be remove from `children_list`. So if we can find C, it should be not exit.
 
 ## Rational
 

@@ -90,9 +90,8 @@ typedef int tid_t;
 
 struct user_thread {
 	int id;
-	bool active;
 	struct list_elem elem;
-	struct semaphore sema;
+	struct semaphore sema; // semaphore to syn exit state
 	int exit_code;
 };
 
