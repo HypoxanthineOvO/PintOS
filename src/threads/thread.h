@@ -88,14 +88,15 @@ typedef int tid_t;
 	  ready state is on the run queue, whereas only a thread in the
 	  blocked state is on a semaphore wait list. */
 
-struct user_thread {
-	int id;
+struct thread_link {
+	/* A Tracer of parent and child thread. */
+	int tid; // tid of child
 	struct list_elem elem;
 	struct semaphore sema; // semaphore to syn exit state
 	int exit_code;
 };
 
-struct file_of_thread {
+struct thread_file {
 	int file_descriptor;
 	struct file* file;
 	struct list_elem file_elem;
@@ -121,7 +122,7 @@ struct thread {
 	// Tree structure of thread
 	struct list children_list; // List of children
 	struct thread* parent; // pointer to parent
-	struct user_thread* child; // pointer to child
+	struct thread_link* child; // pointer to child
 
 	// Status Flags
 	int exit_code; // Exit Status of Thread
@@ -130,7 +131,7 @@ struct thread {
 	struct semaphore sema; // Lock for thread
 
 	// Files
-	int now_fd;
+	int self_fd;
 	struct list file_list; // List of files
 	struct file* file_opened; // File opened by thread
 #endif
@@ -175,7 +176,7 @@ void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
-struct user_thread* thread_get_child(int);
+struct thread_link* thread_get_child(int);
 struct thread* get_thread(int);
 
 void acquire_file_lock(void);

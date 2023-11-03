@@ -50,7 +50,7 @@ tid_t process_execute(const char *cmd_org) {
 		free(command);
 		return tid;	
 	}
-	/* Sema down the parent process, waiting for user_thread */
+	/* Sema down the parent process, waiting for thread_link */
 	sema_down(&thread_current()->sema);
 	if (!thread_current()->success) return TID_ERROR;
 
@@ -105,14 +105,14 @@ static void start_process(void *file_name_)
 int process_wait(tid_t child_tid) {
 	struct thread* current_thread = thread_current();
 	struct list_elem* e;
-	struct user_thread* child = NULL;
+	struct thread_link* child = NULL;
 	for(
 		e = list_begin(&current_thread->children_list);
 		e != list_end(&current_thread->children_list);
 		e = list_next(e)
 	){
-		child = list_entry(e, struct user_thread, elem);
-		if (child->id == child_tid){
+		child = list_entry(e, struct thread_link, elem);
+		if (child->tid == child_tid){
 			sema_down(&child->sema);
 			break;
 		}
@@ -233,8 +233,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
    Stores the executable's entry point into *EIP
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
-bool load(const char *command, void (**eip)(void), void **esp)
-{
+bool load(const char *command, void (**eip)(void), void **esp) {
 	struct thread *t = thread_current();
 	struct Elf32_Ehdr ehdr;
 	struct file *file = NULL;
@@ -264,16 +263,18 @@ bool load(const char *command, void (**eip)(void), void **esp)
 	file_deny_write(file);
 	t->file_opened = file;
 	/* Read and verify executable header. */
-	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\1\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 3 || ehdr.e_version != 1 || ehdr.e_phentsize != sizeof(struct Elf32_Phdr) || ehdr.e_phnum > 1024)
-	{
+	if (
+		file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr 
+		|| memcmp(ehdr.e_ident, "\177ELF\1\1\1", 7) 
+		|| ehdr.e_type != 2 || ehdr.e_machine != 3 || ehdr.e_version != 1 
+		|| ehdr.e_phentsize != sizeof(struct Elf32_Phdr) || ehdr.e_phnum > 1024) {
 		printf("load: %s: error loading executable\n", exe_name);
 		goto done;
 	}
 
 	/* Read program headers. */
 	file_ofs = ehdr.e_phoff;
-	for (i = 0; i < ehdr.e_phnum; i++)
-	{
+	for (i = 0; i < ehdr.e_phnum; i++) {
 		struct Elf32_Phdr phdr;
 
 		if (file_ofs < 0 || file_ofs > file_length(file))
@@ -283,8 +284,7 @@ bool load(const char *command, void (**eip)(void), void **esp)
 		if (file_read(file, &phdr, sizeof phdr) != sizeof phdr)
 			goto done;
 		file_ofs += sizeof phdr;
-		switch (phdr.p_type)
-		{
+		switch (phdr.p_type) {
 		case PT_NULL:
 		case PT_NOTE:
 		case PT_PHDR:
@@ -297,22 +297,19 @@ bool load(const char *command, void (**eip)(void), void **esp)
 		case PT_SHLIB:
 			goto done;
 		case PT_LOAD:
-			if (validate_segment(&phdr, file))
-			{
+			if (validate_segment(&phdr, file)) {
 				bool writable = (phdr.p_flags & PF_W) != 0;
 				uint32_t file_page = phdr.p_offset & ~PGMASK;
 				uint32_t mem_page = phdr.p_vaddr & ~PGMASK;
 				uint32_t page_offset = phdr.p_vaddr & PGMASK;
 				uint32_t read_bytes, zero_bytes;
-				if (phdr.p_filesz > 0)
-				{
+				if (phdr.p_filesz > 0) {
 					/* Normal segment.
 					   Read initial part from disk and zero the rest. */
 					read_bytes = page_offset + phdr.p_filesz;
 					zero_bytes = (ROUND_UP(page_offset + phdr.p_memsz, PGSIZE) - read_bytes);
 				}
-				else
-				{
+				else {
 					/* Entirely zero.
 					   Don't read anything from disk. */
 					read_bytes = 0;

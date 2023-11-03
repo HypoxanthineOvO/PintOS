@@ -190,8 +190,8 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
 	init_thread(t, name, priority);
 	tid = t->tid = allocate_tid();
 	/* For Project 2 */
-	t->child = malloc(sizeof(struct user_thread));
-	t->child->id = tid;
+	t->child = malloc(sizeof(struct thread_link));
+	t->child->tid = tid;
 	// sema with init 0 means lock
 	sema_init(&t->child->sema, 0);
 	list_push_back(
@@ -256,9 +256,7 @@ void thread_unblock(struct thread* t) {
 }
 
 /* Returns the name of the running thread. */
-const char*
-thread_name(void)
-{
+const char* thread_name(void) {
 	return thread_current()->name;
 }
 
@@ -280,17 +278,14 @@ struct thread* thread_current(void) {
 }
 
 /* Returns the running thread's tid. */
-tid_t
-thread_tid(void)
-{
+tid_t thread_tid(void) {
 	return thread_current()->tid;
 }
 
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
 void
-thread_exit(void)
-{
+thread_exit(void) {
 	ASSERT(!intr_context());
 
 #ifdef USERPROG
@@ -305,15 +300,15 @@ thread_exit(void)
 
 	struct list* file_list = &cur->file_list;
 	struct list_elem* e;
-		
+
 	while(!list_empty(file_list)){
 		e = list_pop_front(file_list);
-		struct file_of_thread* file_of_thread = list_entry(e, struct file_of_thread, file_elem);
+		struct thread_file* thread_file = list_entry(e, struct thread_file, file_elem);
 		acquire_file_lock();
-		file_close(file_of_thread->file);
+		file_close(thread_file->file);
 		release_file_lock();
 		list_remove(e);
-		free(file_of_thread);
+		free(thread_file);
 	}
 	/* Remove thread from all threads list, set our status to dying,
 	   and schedule another process.  That process will destroy us
@@ -477,8 +472,7 @@ is_thread(struct thread* t)
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 static void
-init_thread(struct thread* t, const char* name, int priority)
-{
+init_thread(struct thread* t, const char* name, int priority) {
 	enum intr_level old_level;
 
 	ASSERT(t != NULL);
@@ -499,23 +493,18 @@ init_thread(struct thread* t, const char* name, int priority)
 	list_init(&t->file_list);
 	sema_init(&t->sema, 0);
 	t->success = true;
-	t->exit_code = UINT32_MAX;
-	t->now_fd = 2;
+	t->exit_code = -1;//UINT32_MAX;
+	t->self_fd = 2;
 	t->file_opened = NULL;
 #endif
-
 	old_level = intr_disable();
 	list_push_back(&all_list, &t->allelem);
 	intr_set_level(old_level);
-
-
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
    returns a pointer to the frame's base. */
-static void*
-alloc_frame(struct thread* t, size_t size)
-{
+static void* alloc_frame(struct thread* t, size_t size) {
 	/* Stack data is always allocated in word-size units. */
 	ASSERT(is_thread(t));
 	ASSERT(size % sizeof(uint32_t) == 0);
@@ -554,9 +543,7 @@ next_thread_to_run(void)
 
    After this function and its caller returns, the thread switch
    is complete. */
-void
-thread_schedule_tail(struct thread* prev)
-{
+void thread_schedule_tail(struct thread* prev) {
 	struct thread* cur = running_thread();
 
 	ASSERT(intr_get_level() == INTR_OFF);
@@ -591,9 +578,7 @@ thread_schedule_tail(struct thread* prev)
 
    It's not safe to call printf() until thread_schedule_tail()
    has completed. */
-static void
-schedule(void)
-{
+static void schedule(void) {
 	struct thread* cur = running_thread();
 	struct thread* next = next_thread_to_run();
 	struct thread* prev = NULL;
@@ -608,9 +593,7 @@ schedule(void)
 }
 
 /* Returns a tid to use for a new thread. */
-static tid_t
-allocate_tid(void)
-{
+static tid_t allocate_tid(void) {
 	static tid_t next_tid = 1;
 	tid_t tid;
 
@@ -622,9 +605,7 @@ allocate_tid(void)
 }
 
 /* Get the given tid thread in the all thread list */
-struct thread*
-	get_thread(tid_t tid)
-{
+struct thread* get_thread(tid_t tid) {
 	struct list_elem* e;
 	/* Loop through the all thread list */
 	for (e = list_begin(&all_list); e != list_end(&all_list);
@@ -643,15 +624,15 @@ struct thread*
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
-struct user_thread* thread_get_child(int id){
+struct thread_link* thread_get_child(int id){
 	struct thread* current_thread = thread_current();
 	for(
 		struct list_elem* e = list_begin(&(current_thread->children_list));
 		e != list_end(&(current_thread->children_list));
 		e = list_next(e)
 	){
-		struct user_thread* child = list_entry(e, struct user_thread, elem);
-		if(id == child->id) return child;
+		struct thread_link* child = list_entry(e, struct thread_link, elem);
+		if(id == child->tid) return child;
 	}
 	return NULL;
 }
