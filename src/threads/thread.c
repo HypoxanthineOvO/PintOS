@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <random.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
@@ -296,6 +297,7 @@ thread_exit(void) {
 	printf ("%s: exit(%d)\n",thread_name(), thread_current()->exit_code);
 	cur->child->exit_code = cur->exit_code;
 	sema_up(&cur->child->sema);
+	//free(cur->child);
 	file_close(cur->file_opened);
 
 	struct list* file_list = &cur->file_list;
@@ -315,6 +317,7 @@ thread_exit(void) {
 	   when it calls thread_schedule_tail(). */
 	list_remove(&thread_current()->allelem);
 	thread_current()->status = THREAD_DYING;
+	
 	schedule();
 	NOT_REACHED();
 }

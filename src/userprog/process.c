@@ -60,8 +60,7 @@ tid_t process_execute(const char *cmd_org) {
 /* A thread function that loads a user process and starts it
    running. */
 
-static void start_process(void *file_name_)
-{
+static void start_process(void *file_name_) {
 	char *command = file_name_;
 	struct intr_frame if_;
 	bool success;
@@ -74,11 +73,11 @@ static void start_process(void *file_name_)
 	success = load(command, &if_.eip, &if_.esp);
 
 	struct thread* current_thread = thread_current();
-	if(success){
+	if(success) {
 		thread_current()->parent->success = true;
 		sema_up(&thread_current()->parent->sema);
 	}
-	else{
+	else {
 		thread_current()->parent->success = false;
 		sema_up(&thread_current()->parent->sema);
 		thread_exit();
@@ -148,8 +147,7 @@ void process_exit(void) {
 /* Sets up the CPU for running user code in the current
    thread.
    This function is called on every context switch. */
-void process_activate(void)
-{
+void process_activate(void) {
 	struct thread *t = thread_current();
 
 	/* Activate thread's page tables. */
@@ -342,9 +340,60 @@ done:
 	release_file_lock();
 	return success;
 }
+
+/* Our setup stack and it's helpers */
+static bool push_arguments_to_stack(void** esp, const char* argument_string){
+	// Generally esp is 0xc0000000
+	int argc = 0, argv[128];
+	char* save_ptr;
+	char* token = strtok_r(argument_string, " ", &save_ptr);
+	/* Noticed that the order of them are not important, because we use pointer to refer them */
+	while(token){
+		*esp -= (strlen(token) + 1);
+		memcpy(*esp, token, strlen(token) + 1); // Copy token to stack
+		argv[argc++] = (int)*esp;
+		token = strtok_r(NULL, " ", &save_ptr);
+	}
+
+	*esp = (int)*esp & 0xfffffffc; // Wprd Align
+	*esp -= 4;
+	*(int*)*esp = 0;
+	for(int i = argc - 1; i >= 0; i--){
+		*esp -= 4;
+		*(int*)*esp = argv[i]; // Address of argv[i]
+	}
+	*esp -= 4;
+	*(int*)*esp =(int)*esp + 4; // Address of argv
+	*esp -= 4;
+	*(int*)*esp = argc;
+	*esp -= 4;
+	*(int*)*esp = 0;
+	return true;
+}
 /* load() helpers. */
 
 static bool install_page(void *upage, void *kpage, bool writable);
+
+/* Create a minimal stack by mapping a zeroed page at the top of
+   user virtual memory. */
+// static bool setup_stack(void **esp, const char *command)
+static bool setup_stack(void **esp, const char* command) {
+	uint8_t *kpage;
+	bool success = false;
+
+	kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+	if (kpage != NULL) {
+		success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
+		if (success) {
+			*esp = PHYS_BASE;
+			success = push_arguments_to_stack(esp, command);
+		}
+
+		else
+			palloc_free_page(kpage);
+	}
+	return success;
+}
 
 /* Checks whether PHDR describes a valid, loadable segment in
    FILE and returns true if so, false otherwise. */
@@ -450,53 +499,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 	return true;
 }
 
-static bool push_arguments_to_stack(void** esp, const char* argument_string){
-	int argc = 0, argv[128];
-	char* save_ptr;
-	char* token = strtok_r(argument_string, " ", &save_ptr);
-	while(token){
-		*esp -= (strlen(token) + 1);
-		memcpy(*esp, token, strlen(token) + 1);
-		argv[argc++] = (int)*esp;
-		token = strtok_r(NULL, " ", &save_ptr);
-	}
 
-	*esp = (int)*esp & 0xfffffffc;
-	*esp -= 4;
-	*(int*)*esp = 0;
-	for(int i = argc - 1; i >= 0; i--){
-		*esp -= 4;
-		*(int*)*esp = argv[i];
-	}
-	*esp -= 4;
-	*(int*)*esp =(int)*esp + 4;
-	*esp -= 4;
-	*(int*)*esp = argc;
-	*esp -= 4;
-	*(int*)*esp = 0;
-	return true;
-}
-
-/* Create a minimal stack by mapping a zeroed page at the top of
-   user virtual memory. */
-// static bool setup_stack(void **esp, const char *command)
-static bool setup_stack(void **esp, const char* command) {
-	uint8_t *kpage;
-	bool success = false;
-
-	kpage = palloc_get_page(PAL_USER | PAL_ZERO);
-	if (kpage != NULL) {
-		success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
-		if (success) {
-			*esp = PHYS_BASE;
-			success = push_arguments_to_stack(esp, command);
-		}
-
-		else
-			palloc_free_page(kpage);
-	}
-	return success;
-}
 
 /* Adds a mapping from user virtual address UPAGE to kernel
    virtual address KPAGE to the page table.
@@ -507,9 +510,7 @@ static bool setup_stack(void **esp, const char* command) {
    with palloc_get_page().
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
-static bool
-install_page(void *upage, void *kpage, bool writable)
-{
+static bool install_page(void *upage, void *kpage, bool writable) {
 	struct thread *t = thread_current();
 
 	/* Verify that there's not already a page at that virtual

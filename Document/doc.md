@@ -18,13 +18,14 @@
 2. Then we deal with command line in `setup_stack`.
    1. In `setup_stack`, we have an complete command line string.
    2. We use `strtok_r` to parse the command line string.
-   3. We use `int argc` and `int argv[]` to record the number of arguments and the address of each argument.
+   3. We first push the arguments string on stack, and save the pointer of them in `argv`.
+   4. We use `int argc` and `int argv[]` to record the number of arguments and the address of each argument.
     - argv have type `int` because we have alignment requirement.
-   4. Then we push the arguments onto the stack at inverse order.
+   5. Then we push the arguments onto the stack at inverse order.
 
 ## Rational
 ### A3: Why does Pintos implement strtok_r() but not strtok()?
-PintOS implement `strtok_r()` instear of `strtok()` have several reasons:
+PintOS implement `strtok_r()` instead of `strtok()` have several reasons:
 - `strtok_r()` is thread-safe, but `strtok()` is not.
 - `strtok_r()` is reentrant, but `strtok()` is not.
 
@@ -42,42 +43,43 @@ But `strtok_r()` get the current position of the string from the third argument,
 ### B1: Copy here the declaration of each new or changed "struct" or "struct" member, global or static variable, typedef, or enumeration.  Identify the purpose of each in 25 words or less.
 
 ```c++
-struct threar{
+struct thread{
     ...
-	/* Owned by userprog/process.c. */
-	uint32_t* pagedir;                  /* Page directory. */
-	/* Structure for Project 2 */
-	// Tree structure of thread
-	struct list children_list; // List of children
-	struct thread* parent; // pointer to parent
-	struct user_thread* child; // pointer to child
+	#ifdef USERPROG
+		/* Owned by userprog/process.c. */
+		uint32_t* pagedir;                  /* Page directory. */
+		/* Structure for Project 2 */
+		// Tree structure of thread
+		struct list children_list; // List of children
+		struct thread* parent; // pointer to parent
+		struct thread_link* child; // pointer to child
 
-	// Status Flags
-	int exit_code; // Exit Status of Thread
-	bool start_success;
-	// Locks
-	struct semaphore sema; // Lock for thread
+		// Status Flags
+		int exit_code; // Exit Status of Thread
+		bool success;
+		// Locks
+		struct semaphore sema; // Lock for thread
 
-	// Files
-	int now_fd;
-	struct list file_list; // List of files
-	struct file* file_opened; // File opened by thread
+		// Files
+		int self_fd;
+		struct list file_list; // List of files
+		struct file* file_opened; // File opened by thread
+	#endif
     ...
 }
 
-/* User Process thread */
-struct user_thread {
-	int id; // Thread ID
-	bool success; // Whether the thread is created successfully
-	struct list_elem elem; // List Element
-	struct semaphore sema; // Lock for thread
-	int exit_code; // Exit Status of Thread
+struct thread_link {
+	/* A Tracer of parent and child thread. */
+	int tid; // tid of child
+	struct list_elem elem;
+	struct semaphore sema; // semaphore to syn exit state
+	int exit_code;
 };
 
-struct file_of_thread {
-	int file_descriptor; // File Descriptor
-	struct file* file; // File Pointer
-	struct list_elem file_elem; // List Element
+struct thread_file {
+	int file_descriptor;
+	struct file* file;
+	struct list_elem file_elem;
 };
 
 ```
@@ -85,36 +87,15 @@ struct file_of_thread {
 ### B2: Describe how file descriptors are associated with open files. Are file descriptors unique within the entire OS or just within a single process?
 - A file descriptor is a number.
 - For each thread, we have a list of files and a pointer to the file opened by the thread.
-- We store the file descriptor of the file opened by `now_fd`. Notice that `now_fd` is **unique within a single process**.
-- In `syscall.c`, we implement a function `get_file_by_fd`, which can get the file pointer by the file descriptor and file_list.
+- We store the file descriptor of the file opened by `self_fd`. Notice that `self_fd` is **unique within a single process**.
+- In `syscall.c`, we implement a function `get_file`, which can get the file pointer by the file descriptor and `thread_current()->file_list`.
 
 ## Algorithms
 
 ### B3: Describe your code for reading and writing user data from the kernel.
-- We implement a function `check_addr()` to get the user data from the kernel.
-	```c++
-	void* check_addr(int const* vaddr) {
-		/* Judge address */
-		if (!is_user_vaddr(vaddr)) {
-			exit_special();
-		}
-		/* Judge the page */
-		void* ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
-		if (!ptr) {
-			exit_special();
-		}
-		/* Judge the content of page */
-		uint8_t* check_byteptr = (uint8_t*)vaddr;
-		for (uint8_t i = 0; i < 4; i++) {
-			if (get_user(check_byteptr + i) == -1) {
-				exit_special();
-			}
-		}
-		return ptr;
-	}
-	```
-	In this function, we check the address, the page and the content of the page. If any of them is invalid, we exit the thread.
-- Everywhere we need to read or write user data, we use `check_addr()` to get the user data from the kernel.
+- Because interrupts does not change the page directory, we can access the user memory directly in the interrupt handler.
+- After checking the address is valid, we can read or write the memeory directly.
+- The method we adopted to check the validity of the user memory address is described in **B6**.
 
 ### B4: Suppose a system call causes a full page (4,096 bytes) of data to be copied from user space into the kernel.  What is the least and the greatest possible number of inspections of the page table (e.g. calls to pagedir_get_page()) that might result?  What about for a system call that only copies 2 bytes of data?  Is there room for improvement in these numbers, and how much?
 - In a naive implementation, we need to check every byte before reading them. So, the greatest possible number is $4096$.
@@ -130,21 +111,49 @@ int syscall_wait(pid_t pid) {
 	return process_wait(pid);
 }
 ```
-In `process_wait`, we find the child thread by `pid` and call `sema_down(&child->sema)` to wait for the child thread to exit.
+In `process_wait`, we find the child thread by `pid` and call `sema_down(&child->sema)` to wait for the child thread to exit. Only when the child thread exit, it will call `sema_up`, we can get the exit code of the child thread. Then we return the exit code.
 
-The document:
-> The process that calls wait has already called wait on pid. That is, a process may wait for any given child at most once.
-So if the wait have been called on a child thread, `active` would be set `true` and we will check it in `process_wait`. 
 
 ### B6: Any access to user program memory at a user-specified address can fail due to a bad pointer value.  Such accesses must cause the process to be terminated.  System calls are fraught with such accesses, e.g. a "write" system call requires reading the system call number from the user stack, then each of the call's three arguments, then an arbitrary amount of user memory, and any of these can fail at any point. This poses a design and error-handling problem: how do you best avoid obscuring the primary function of code in a morass of error-handling?  Furthermore, when an error is detected, how do you ensure that all temporarily allocated resources (locks, buffers, etc.) are freed?  In a few paragraphs, describe the strategy or strategies you adopted for managing these issues.  Give an example.
+- We implement a series function to check the validity of the user memory address.
+	```c++
+	void check_pt(int const* vaddr){
+		uint8_t* check_byteptr = (uint8_t*)vaddr;
+		for(uint8_t i = 0; i < 4; i++){
+			if(!is_user_vaddr(check_byteptr + i) || get_user(check_byteptr + i) == -1){
+				exit_special();
+			}
+		}
+	}
+
+	void check_buffer(uint8_t const* buffer, unsigned int size){
+		if(!is_user_vaddr(buffer) || !is_user_vaddr(buffer + size - 1)
+			|| get_user(buffer) == -1 || get_user(buffer + size - 1) == -1){
+			exit_special();
+		}
+	}
+
+	void check_string(char const* str){
+		while(1){
+			if(!is_user_vaddr(str)) exit_special();
+			int user = get_user((uint8_t const *)str);
+			if (user == 0) return;
+			if (user == -1) exit_special();
+			str++;
+		}
+	}
+	```
+	- `check_pt` check the validity of the user memory address. It can check the address of the system call number and the arguments.
+	- `check_buffer` check the validity of the buffer. It can check the address of the buffer and the address of the end of the buffer.
+	- `check_string` check the validity of the string. It can check the address of all the characters of the string.
 - Following the document, we modified `page_fault()`  function's exception handler. If the page fault is occurred in kernel mode, instead of panicking, we set eax to -1 and set eip to eax because eax stores the address of the next instruction. Then we return to the next instruction and continue to execute.
-- In `syscall_handler()`, we use `check_addr()` to check the address of the system call number and the arguments. If any of them is invalid, we exit the thread.
+- In `syscall_handler()`, we use `check_pt()` to check the address of the system call number and the arguments. If any of them is invalid, we exit the thread.
   - For each system call, we check the address of the system call number and the arguments. We modified the check object according to the system call type.
 - For Example: In `syscall_handler`, we do:
-  - Check `f->esp` by `check_addr`
+  - Check `f->esp` by `check_pt`
   - If `f->esp` is valid, we get the system call number by `get_user(f->esp)`. Assume the system call is `syscall_write`, it have 3 arguments.
-  - We will check `f->esp + 1`, `f->esp + 2`, `f->esp + 3` by `check_addr`.
-  - As it buffer, we need also check `buffer` and `buffer + length - 1` by `check_addr`.
+  - We will check `f->esp + 1`, `f->esp + 2`, `f->esp + 3` by `check_pt`.
+  - Because `syscall_write` need to write a buffer to the file, we need to check the buffer by `check_buffer`.
   - Then we do the system call.
 
 
@@ -157,21 +166,24 @@ So if the wait have been called on a child thread, `active` would be set `true` 
 
 ### B8: Consider parent process P with child process C.  How do you ensure proper synchronization and avoid race conditions when P calls wait(C) before C exits?  After C exits?  How do you ensure that all resources are freed in each case?  How about when P terminates without waiting, before C exits?  After C exits?  Are there any special cases?
 
-#### How do you ensure proper synchronization and avoid race conditions when P calls wait(C) before C exits?
-- We call `sema_down(C->sema)` to let P wait for C.
-#### After C exits?
-- Noticed that if C exited, it will be remove from `children_list`. So if we can find C, it should be not exit.
-#### How do you ensure that all resources are freed in each case?
-- Our data structure are freed in `process_exit()`. No other resources need to be freed.
-####  How about when P terminates without waiting, before C exits?  
-- We call `sema_up(&C->sema)` to wake up C. So C can exit normally.
-#### After C exits?
-- Noticed that if C exited, it will be remove from `children_list`. So if we can find C, it should be not exit.
+To ensure proper synchronization and avoid race conditions when the parent process `P` calls `wait(C)` before `C` exits, we can use the following approach:
+
+1. Introduce a `success` flag in the `struct thread` to record whether the thread executed successfully. Additionally, use the `parent` field in the `struct thread` to access and update the parent's status based on the loading result. This design allows the parent to record the child's execution result instead of the child itself.
+2. Use a semaphore to implement the "parent waits for child" mechanism. When a child process is created, it will perform a down operation on the semaphore to block the parent. Once the child process completes its execution, it will perform an up operation on the semaphore to wake up its parent.
+
+To ensure that all resources are freed in each case, we can follow these steps:
+
+1. When P calls wait(C) before C exits, the parent process P will block using the down operation on the semaphore. Once C finishes its execution, it will perform the up operation on the semaphore, allowing the parent process P to continue. At this point, the parent process can free any resources associated with the child process C.
+2. If P terminates without waiting for C before C exits, the child process need do nothing. The parent process will be terminated by the kernel, and the kernel will free all resources associated with the parent process.
+
+In both cases, proper synchronization and resource cleanup are ensured by using semaphores and appropriate checks on the parent-child relationship. These measures help avoid race conditions and ensure that all resources are freed correctly.
+
+It's important to note that there may be special cases or additional considerations depending on the specific implementation and requirements of the system.
 
 ## Rational
 
 ### B9: Why did you choose to implement access to user memory from the kernel in the way that you did?
-- We follow the document to implement the access to user memory from the kernel.
+- We follow the document's method 2 to implement the access to user memory from the kernel.
 - We find the document give a good way to implement the access to user memory from the kernel, and it even give the code of `get_user()`. So, we follow the document to implement the access to user memory from the kernel.
 
 ### B10: What advantages or disadvantages can you see to your design for file descriptors?
