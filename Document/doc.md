@@ -1,199 +1,135 @@
-# CS140 Project 2: User Programs Design Document
+# CS140 Project 3: Virtual Memory
 ## Group
-- **Yunxiang He** <heyx1@shanghaitech.edu.cn>
-- **Yicheng Fan** <fanych1@shanghaitech.edu.cn>
+- Yunxiang He <heyx1@shanghaitech.edu.cn>
+- Yicheng Fan <fanych1@shanghaitech.edu.cn>
 
-# Argument Passing
+# Page table management
 ## Data Structures
-### A1: Copy here the declaration of each new or changed "struct" or "struct" member, global or static variable, typedef, or enumeration.  Identify the purpose of each in 25 words or less.
-- We add no new data structures.
 
-## Algorithms
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
 
-### A2: Briefly describe how you implemented argument parsing.  How do you arrange for the elements of argv[] to be in the right order? How do you avoid overflowing the stack page?
-- We implement Argument Passing in two steps:
-1. At `process_execute`, we divide the command line into two parts: the executable name and the arguments.
-    - The executable name is the first word of the command line.
-    - The executable name are used to create the new thread.
-2. Then we deal with command line in `setup_stack`.
-   1. In `setup_stack`, we have an complete command line string.
-   2. We use `strtok_r` to parse the command line string.
-   3. We first push the arguments string on stack, and save the pointer of them in `argv`.
-   4. We use `int argc` and `int argv[]` to record the number of arguments and the address of each argument.
-    - argv have type `int` because we have alignment requirement.
-   5. Then we push the arguments onto the stack at inverse order.
+---- ALGORITHMS ----
 
-## Rational
-### A3: Why does Pintos implement strtok_r() but not strtok()?
-PintOS implement `strtok_r()` instead of `strtok()` have several reasons:
-- `strtok_r()` is thread-safe, but `strtok()` is not.
-- `strtok_r()` is reentrant, but `strtok()` is not.
+>> A2: In a few paragraphs, describe your code for accessing the data
+>> stored in the SPT about a given page.
 
-That because `strtok()` use a static variable to record the current position of the string, so it is not thread-safe and reentrant.
+>> A3: How does your code coordinate accessed and dirty bits between
+>> kernel and user virtual addresses that alias a single frame, or
+>> alternatively how do you avoid the issue?
 
-But `strtok_r()` get the current position of the string from the third argument, a pointer, so it is thread-safe and reentrant.
+---- SYNCHRONIZATION ----
 
-### A4 : In Pintos, the kernel separates commands into a executable name and arguments.  In Unix-like systems, the shell does this separation.  Identify at least two advantages of the Unix approach.
-- The shell can do more complex parsing, such as quoting, redirection, and piping. That make the shell more powerful.
-- This design make the kernel more simple and clear.
+>> A4: When two user processes both need a new frame at the same time,
+>> how are races avoided?
 
+---- RATIONALE ----
 
-# System Calls
-## Data Structures
-### B1: Copy here the declaration of each new or changed "struct" or "struct" member, global or static variable, typedef, or enumeration.  Identify the purpose of each in 25 words or less.
+>> A5: Why did you choose the data structure(s) that you did for
+>> representing virtual-to-physical mappings?
 
-```c++
-struct thread{
-    ...
-	#ifdef USERPROG
-		/* Owned by userprog/process.c. */
-		uint32_t* pagedir;                  /* Page directory. */
-		/* Structure for Project 2 */
-		// Tree structure of thread
-		struct list children_list; // List of children
-		struct thread* parent; // pointer to parent
-		struct thread_link* child; // pointer to child
+               PAGING TO AND FROM DISK
+               =======================
 
-		// Status Flags
-		int exit_code; // Exit Status of Thread
-		bool success;
-		// Locks
-		struct semaphore sema; // Lock for thread
+---- DATA STRUCTURES ----
 
-		// Files
-		int self_fd;
-		struct list file_list; // List of files
-		struct file* file_opened; // File opened by thread
-	#endif
-    ...
-}
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
 
-struct thread_link {
-	/* A Tracer of parent and child thread. */
-	int tid; // tid of child
-	struct list_elem elem;
-	struct semaphore sema; // semaphore to syn exit state
-	int exit_code;
-};
+---- ALGORITHMS ----
 
-struct thread_file {
-	int file_descriptor;
-	struct file* file;
-	struct list_elem file_elem;
-};
+>> B2: When a frame is required but none is free, some frame must be
+>> evicted.  Describe your code for choosing a frame to evict.
 
-```
+>> B3: When a process P obtains a frame that was previously used by a
+>> process Q, how do you adjust the page table (and any other data
+>> structures) to reflect the frame Q no longer has?
 
-### B2: Describe how file descriptors are associated with open files. Are file descriptors unique within the entire OS or just within a single process?
-- A file descriptor is a number.
-- For each thread, we have a list of files and a pointer to the file opened by the thread.
-- We store the file descriptor of the file opened by `self_fd`. Notice that `self_fd` is **unique within a single process**.
-- In `syscall.c`, we implement a function `get_file`, which can get the file pointer by the file descriptor and `thread_current()->file_list`.
+>> B4: Explain your heuristic for deciding whether a page fault for an
+>> invalid virtual address should cause the stack to be extended into
+>> the page that faulted.
 
-## Algorithms
+---- SYNCHRONIZATION ----
 
-### B3: Describe your code for reading and writing user data from the kernel.
-- Because interrupts does not change the page directory, we can access the user memory directly in the interrupt handler.
-- After checking the address is valid, we can read or write the memeory directly.
-- The method we adopted to check the validity of the user memory address is described in **B6**.
+>> B5: Explain the basics of your VM synchronization design.  In
+>> particular, explain how it prevents deadlock.  (Refer to the
+>> textbook for an explanation of the necessary conditions for
+>> deadlock.)
 
-### B4: Suppose a system call causes a full page (4,096 bytes) of data to be copied from user space into the kernel.  What is the least and the greatest possible number of inspections of the page table (e.g. calls to pagedir_get_page()) that might result?  What about for a system call that only copies 2 bytes of data?  Is there room for improvement in these numbers, and how much?
-- In a naive implementation, we need to check every byte before reading them. So, the greatest possible number is $4096$.
-- In a best implementation, the continuous data is on at most $2$ pages. We can use functions such as `lookup_page` to check them. So, the greatest possible number is $2$.
-- If system calls can only copies 2 byte of data, the greatest possible number is $2048$ and the minimum possible number is $2$.
+>> B6: A page fault in process P can cause another process Q's frame
+>> to be evicted.  How do you ensure that Q cannot access or modify
+>> the page during the eviction process?  How do you avoid a race
+>> between P evicting Q's frame and Q faulting the page back in?
 
-### B5: Briefly describe your implementation of the "wait" system call and how it interacts with process termination.
-According to the document:
-> We suggest that you implement process_wait() according to the comment at the top of the function and then implement the wait system call in terms of process_wait().
-We implement `syscall_wait` with:
-```c++
-int syscall_wait(pid_t pid) {
-	return process_wait(pid);
-}
-```
-In `process_wait`, we find the child thread by `pid` and call `sema_down(&child->sema)` to wait for the child thread to exit. Only when the child thread exit, it will call `sema_up`, we can get the exit code of the child thread. Then we return the exit code.
+>> B7: Suppose a page fault in process P causes a page to be read from
+>> the file system or swap.  How do you ensure that a second process Q
+>> cannot interfere by e.g. attempting to evict the frame while it is
+>> still being read in?
 
+>> B8: Explain how you handle access to paged-out pages that occur
+>> during system calls.  Do you use page faults to bring in pages (as
+>> in user programs), or do you have a mechanism for "locking" frames
+>> into physical memory, or do you use some other design?  How do you
+>> gracefully handle attempted accesses to invalid virtual addresses?
 
-### B6: Any access to user program memory at a user-specified address can fail due to a bad pointer value.  Such accesses must cause the process to be terminated.  System calls are fraught with such accesses, e.g. a "write" system call requires reading the system call number from the user stack, then each of the call's three arguments, then an arbitrary amount of user memory, and any of these can fail at any point. This poses a design and error-handling problem: how do you best avoid obscuring the primary function of code in a morass of error-handling?  Furthermore, when an error is detected, how do you ensure that all temporarily allocated resources (locks, buffers, etc.) are freed?  In a few paragraphs, describe the strategy or strategies you adopted for managing these issues.  Give an example.
-- We implement a series function to check the validity of the user memory address.
-	```c++
-	void check_pt(int const* vaddr){
-		uint8_t* check_byteptr = (uint8_t*)vaddr;
-		for(uint8_t i = 0; i < 4; i++){
-			if(!is_user_vaddr(check_byteptr + i) || get_user(check_byteptr + i) == -1){
-				exit_special();
-			}
-		}
-	}
+---- RATIONALE ----
 
-	void check_buffer(uint8_t const* buffer, unsigned int size){
-		if(!is_user_vaddr(buffer) || !is_user_vaddr(buffer + size - 1)
-			|| get_user(buffer) == -1 || get_user(buffer + size - 1) == -1){
-			exit_special();
-		}
-	}
+>> B9: A single lock for the whole VM system would make
+>> synchronization easy, but limit parallelism.  On the other hand,
+>> using many locks complicates synchronization and raises the
+>> possibility for deadlock but allows for high parallelism.  Explain
+>> where your design falls along this continuum and why you chose to
+>> design it this way.
 
-	void check_string(char const* str){
-		while(1){
-			if(!is_user_vaddr(str)) exit_special();
-			int user = get_user((uint8_t const *)str);
-			if (user == 0) return;
-			if (user == -1) exit_special();
-			str++;
-		}
-	}
-	```
-	- `check_pt` check the validity of the user memory address. It can check the address of the system call number and the arguments.
-	- `check_buffer` check the validity of the buffer. It can check the address of the buffer and the address of the end of the buffer.
-	- `check_string` check the validity of the string. It can check the address of all the characters of the string.
-- Following the document, we modified `page_fault()`  function's exception handler. If the page fault is occurred in kernel mode, instead of panicking, we set eax to -1 and set eip to eax because eax stores the address of the next instruction. Then we return to the next instruction and continue to execute.
-- In `syscall_handler()`, we use `check_pt()` to check the address of the system call number and the arguments. If any of them is invalid, we exit the thread.
-  - For each system call, we check the address of the system call number and the arguments. We modified the check object according to the system call type.
-- For Example: In `syscall_handler`, we do:
-  - Check `f->esp` by `check_pt`
-  - If `f->esp` is valid, we get the system call number by `get_user(f->esp)`. Assume the system call is `syscall_write`, it have 3 arguments.
-  - We will check `f->esp + 1`, `f->esp + 2`, `f->esp + 3` by `check_pt`.
-  - Because `syscall_write` need to write a buffer to the file, we need to check the buffer by `check_buffer`.
-  - Then we do the system call.
+             MEMORY MAPPED FILES
+             ===================
 
+---- DATA STRUCTURES ----
 
-## Synchronization
-### B7: The "exec" system call returns -1 if loading the new executable fails, so it cannot return before the new executable has completed loading.  How does your code ensure this?  How is the load success/failure status passed back to the thread that calls "exec"?
-- In our `syscall_exec()`, we call `process_execute()`.
-- In `process_execute()`, after we create a new thread, we call `sema_down(&thread_current()->sema)` to wait for the child thread to load the new executable. Noticed that the child process will run `start_process()` as the first function.
-- In `start_process()`, we call `sema_up(&thread_current()->parent->sema)` to wake up the parent thread.
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
 
+---- ALGORITHMS ----
 
-### B8: Consider parent process P with child process C.  How do you ensure proper synchronization and avoid race conditions when P calls wait(C) before C exits?  After C exits?  How do you ensure that all resources are freed in each case?  How about when P terminates without waiting, before C exits?  After C exits?  Are there any special cases?
+>> C2: Describe how memory mapped files integrate into your virtual
+>> memory subsystem.  Explain how the page fault and eviction
+>> processes differ between swap pages and other pages.
 
-To ensure proper synchronization and avoid race conditions when the parent process `P` calls `wait(C)` before `C` exits, we can use the following approach:
+>> C3: Explain how you determine whether a new file mapping overlaps
+>> any existing segment.
 
-1. Introduce a `success` flag in the `struct thread` to record whether the thread executed successfully. Additionally, use the `parent` field in the `struct thread` to access and update the parent's status based on the loading result. This design allows the parent to record the child's execution result instead of the child itself.
-2. Use a semaphore to implement the "parent waits for child" mechanism. When a child process is created, it will perform a down operation on the semaphore to block the parent. Once the child process completes its execution, it will perform an up operation on the semaphore to wake up its parent.
+---- RATIONALE ----
 
-To ensure that all resources are freed in each case, we can follow these steps:
+>> C4: Mappings created with "mmap" have similar semantics to those of
+>> data demand-paged from executables, except that "mmap" mappings are
+>> written back to their original files, not to swap.  This implies
+>> that much of their implementation can be shared.  Explain why your
+>> implementation either does or does not share much of the code for
+>> the two situations.
 
-1. When P calls wait(C) before C exits, the parent process P will block using the down operation on the semaphore. Once C finishes its execution, it will perform the up operation on the semaphore, allowing the parent process P to continue. At this point, the parent process can free any resources associated with the child process C.
-2. If P terminates without waiting for C before C exits, the child process need do nothing. The parent process will be terminated by the kernel, and the kernel will free all resources associated with the parent process.
+               SURVEY QUESTIONS
+               ================
 
-In both cases, proper synchronization and resource cleanup are ensured by using semaphores and appropriate checks on the parent-child relationship. These measures help avoid race conditions and ensure that all resources are freed correctly.
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
 
-It's important to note that there may be special cases or additional considerations depending on the specific implementation and requirements of the system.
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
 
-## Rational
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
 
-### B9: Why did you choose to implement access to user memory from the kernel in the way that you did?
-- We follow the document's method 2 to implement the access to user memory from the kernel.
-- We find the document give a good way to implement the access to user memory from the kernel, and it even give the code of `get_user()`. So, we follow the document to implement the access to user memory from the kernel.
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
 
-### B10: What advantages or disadvantages can you see to your design for file descriptors?
-- We use linked-list to store the file descriptors.
-- Advantages
-  - When we insert a new file descriptor, we do not need to move the other file descriptors. So, the time complexity is $O(1)$.
-  - The file descriptors are unique within a single process.
-- Disadvantages
-  - We need iterate the list to find the file descriptor. So, the time complexity is $O(n)$. It is not efficient.
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future quarters or the remaining projects?
 
-### B11: The default `tid_t` to `pid_t` mapping is the identity mapping.
->> If you changed it, what advantages are there to your approach?
-- We do not change the default `tid_t` to `pid_t` mapping.
+>> Any other comments?

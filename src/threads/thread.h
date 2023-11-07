@@ -3,8 +3,10 @@
 
 #include <debug.h>
 #include <list.h>
+#include <hash.h>
 #include <stdint.h>
 #include "threads/synch.h"
+
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -30,7 +32,7 @@ typedef int tid_t;
 #define THREAD_TICKS_TO_UNBLOCK_NO_TICKS (-1)
 // User Program Macro for Project 2
 #define USERPROG 
-
+#define VM
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -134,6 +136,11 @@ struct thread {
 	int self_fd;
 	struct list file_list; // List of files
 	struct file* file_opened; // File opened by thread
+#endif
+
+#ifdef VM
+	struct hash page_table;
+	void* esp;
 #endif
 
 	/* Owned by thread.c. */

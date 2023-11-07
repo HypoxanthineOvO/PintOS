@@ -6,6 +6,8 @@
         "vaddr.h": "c",
         "stdio.h": "c",
         "shutdown.h": "c",
-        "string": "c"
+        "string": "c",
+        "hash.h": "c",
+        "thread.h": "c"
     }
 }

@@ -119,6 +119,11 @@ int main(void)
 	serial_init_queue();
 	timer_calibrate();
 
+/* Project 3 */
+#ifdef VM
+	frame_table_init();
+#endif
+
 #ifdef FILESYS
 	/* Initialize file system. */
 	ide_init();

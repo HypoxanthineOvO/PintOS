@@ -18,9 +18,11 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+#include "vm/page.h"
+#include "vm/frame.h"
+
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
-
 
 
 /* Starts a new thread running a user program loaded from
@@ -65,15 +67,21 @@ static void start_process(void *file_name_) {
 	struct intr_frame if_;
 	bool success;
 
+	struct thread* current_thread = thread_current();
+
+	/* Initialize for VM */
+	#ifdef VM
+	page_table_init(&current_thread->page_table);
+	#endif 
+
 	/* Initialize interrupt frame and load executable. */
 	memset(&if_, 0, sizeof if_);
 	if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
 	if_.cs = SEL_UCSEG;
 	if_.eflags = FLAG_IF | FLAG_MBS;
 	success = load(command, &if_.eip, &if_.esp);
-
-	struct thread* current_thread = thread_current();
 	if(success) {
+		
 		thread_current()->parent->success = true;
 		sema_up(&thread_current()->parent->sema);
 	}
@@ -102,6 +110,7 @@ static void start_process(void *file_name_) {
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int process_wait(tid_t child_tid) {
+	
 	struct thread* current_thread = thread_current();
 	struct list_elem* e;
 	struct thread_link* child = NULL;
@@ -119,6 +128,7 @@ int process_wait(tid_t child_tid) {
 	if(e == list_end(&current_thread->children_list)){
 		return -1;
 	}
+	
 	list_remove(e);
 	return child->exit_code;
 }
@@ -126,10 +136,14 @@ int process_wait(tid_t child_tid) {
 void process_exit(void) {
 	struct thread *cur = thread_current();
 	uint32_t *pd;
-
+	#ifdef VM
+	page_table_destroy(&cur->page_table);
+	//puts("DESTROY!");
+	#endif
 	/* Destroy the current process's page directory and switch back
 	   to the kernel-only page directory. */
 	pd = cur->pagedir;
+
 	if (pd != NULL) {
 		/* Correct ordering here is crucial.  We must set
 		   cur->pagedir to NULL before switching page directories,
@@ -142,6 +156,7 @@ void process_exit(void) {
 		pagedir_activate(NULL);
 		pagedir_destroy(pd);
 	}
+
 }
 
 /* Sets up the CPU for running user code in the current
@@ -372,8 +387,6 @@ static bool push_arguments_to_stack(void** esp, const char* argument_string){
 }
 /* load() helpers. */
 
-static bool install_page(void *upage, void *kpage, bool writable);
-
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 // static bool setup_stack(void **esp, const char *command)
@@ -382,15 +395,22 @@ static bool setup_stack(void **esp, const char* command) {
 	bool success = false;
 
 	kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+	// Page* page = page_create_on_stack(
+	// 	((uint8_t *)PHYS_BASE) - PGSIZE
+	// );
+	// page->writable = true;
+	// kpage = page->frame->frame;
+	
 	if (kpage != NULL) {
 		success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
 		if (success) {
 			*esp = PHYS_BASE;
 			success = push_arguments_to_stack(esp, command);
 		}
+		else{
+			palloc_free_page(kpage);			
+		}
 
-		else
-			palloc_free_page(kpage);
 	}
 	return success;
 }
@@ -463,14 +483,33 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 	ASSERT(ofs % PGSIZE == 0);
 
 	file_seek(file, ofs);
-	while (read_bytes > 0 || zero_bytes > 0)
-	{
+	Hash* page_table = &thread_current()->page_table;
+	while (read_bytes > 0 || zero_bytes > 0) {
 		/* Calculate how to fill this page.
 		   We will read PAGE_READ_BYTES bytes from FILE
 		   and zero the final PAGE_ZERO_BYTES bytes. */
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
+		#ifdef VM
+		
+		if (page_read_bytes == 0){
+			//puts("READ BYTES == 0");
+			Page* page = page_create_out_stack(
+				page_table, upage, writable, NULL, 0, 0
+			);
+			ASSERT (page);
+		}
+		else {
+			//printf("PAGE_READ_BYTES: %d\n", page_read_bytes);
+			Page* page = page_create_out_stack(
+				page_table, upage, writable, file, ofs, page_read_bytes
+			);
+			ofs += page_read_bytes;
+			ASSERT (page);
+		}
+		#else
+		puts("RUN WITHOUT VM!!!!!");
 		/* Get a page of memory. */
 		uint8_t *kpage = palloc_get_page(PAL_USER);
 		if (kpage == NULL)
@@ -490,12 +529,13 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 			palloc_free_page(kpage);
 			return false;
 		}
-
+		#endif
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
 		upage += PGSIZE;
 	}
+	//puts("LOAD SEGMENT DONE");
 	return true;
 }
 
@@ -510,9 +550,9 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
    with palloc_get_page().
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
-static bool install_page(void *upage, void *kpage, bool writable) {
-	struct thread *t = thread_current();
 
+bool install_page(void *upage, void *kpage, bool writable) {
+	struct thread *t = thread_current();
 	/* Verify that there's not already a page at that virtual
 	   address, then map our page there. */
 	return (pagedir_get_page(t->pagedir, upage) == NULL && pagedir_set_page(t->pagedir, upage, kpage, writable));
