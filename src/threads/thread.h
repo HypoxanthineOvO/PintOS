@@ -20,6 +20,7 @@ enum thread_status
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
+typedef int mapid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
 /* Thread priorities. */
@@ -104,6 +105,13 @@ struct thread_file {
 	struct list_elem file_elem;
 };
 
+struct thread_mmap{
+	mapid_t mapid;
+	struct file* file;
+	void* mapped_addr;
+	struct list_elem elem;
+};
+
 
 struct thread {
 	/* Owned by thread.c. */
@@ -141,6 +149,8 @@ struct thread {
 #ifdef VM
 	struct hash page_table;
 	void* esp;
+	struct list mmap_list;
+	mapid_t self_mapid;
 #endif
 
 	/* Owned by thread.c. */

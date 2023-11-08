@@ -500,6 +500,10 @@ init_thread(struct thread* t, const char* name, int priority) {
 	t->self_fd = 2;
 	t->file_opened = NULL;
 #endif
+#ifdef VM
+	list_init(&t->mmap_list);
+	t->self_mapid = 0;
+#endif
 	old_level = intr_disable();
 	list_push_back(&all_list, &t->allelem);
 	intr_set_level(old_level);

@@ -7,7 +7,6 @@
 #include "userprog/process.h"
 #include "frame.h"
 
-static struct lock frame_lock;
 // From userprog
 extern bool install_page (void *, void *, bool);
 // Utils
@@ -122,6 +121,7 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
         frame_free(page->frame->frame);
         return false;
     }
+    //puts("===SUCESSFULLY HANDLE PAGE FAULT===");
     return true;
 }
 

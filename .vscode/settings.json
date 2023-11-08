@@ -8,6 +8,7 @@
         "shutdown.h": "c",
         "string": "c",
         "hash.h": "c",
-        "thread.h": "c"
+        "thread.h": "c",
+        "syscall-nr.h": "c"
     }
 }

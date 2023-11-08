@@ -3,7 +3,7 @@
 #include "userprog/pagedir.h"
 
 static Hash frame_table;
-static struct lock frame_table_lock;
+struct lock frame_lock;
 
 // Utils
 static unsigned frame_hash (const struct hash_elem *e, void *aux UNUSED) {
@@ -20,7 +20,7 @@ static frame_less(const struct hash_elem* a, const struct hash_elem* b){
 
 void* frame_table_init(){
     hash_init(&frame_table, frame_hash, frame_less, NULL);
-    lock_init(&frame_table_lock);
+    lock_init(&frame_lock);
 }
 
 Frame* frame_alloc(Page* user_page){
@@ -45,7 +45,7 @@ Frame* frame_alloc(Page* user_page){
 
 void frame_free(void* frame_addr){
     if (frame_addr == NULL) return;
-    //lock_acquire(&frame_table_lock);
+    //lock_acquire(&frame_lock);
     // For Each Hash Table
     struct hash_iterator it;
     hash_first(&it, &frame_table);
@@ -58,5 +58,5 @@ void frame_free(void* frame_addr){
             break;
         }
     }
-    //lock_release(&frame_table_lock);
+    //lock_release(&frame_lock);
 }

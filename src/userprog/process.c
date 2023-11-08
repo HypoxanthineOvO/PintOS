@@ -138,7 +138,11 @@ void process_exit(void) {
 	uint32_t *pd;
 	#ifdef VM
 	page_table_destroy(&cur->page_table);
-	//puts("DESTROY!");
+	for(struct list_elem* e = list_begin(&cur->mmap_list);
+		e != list_end(&cur->mmap_list); e = list_next(e)){
+			struct thread_mmap* thread_mmap = list_entry(e, struct thread_mmap, elem);
+			free(thread_mmap);
+		}
 	#endif
 	/* Destroy the current process's page directory and switch back
 	   to the kernel-only page directory. */
@@ -408,9 +412,12 @@ static bool setup_stack(void **esp, const char* command) {
 			success = push_arguments_to_stack(esp, command);
 		}
 		else{
-			palloc_free_page(kpage);			
+			palloc_free_page(kpage);
+			//page_free(&thread_current()->page_table, page);	
 		}
-
+	}
+	else{
+		puts("PAGE ALLOCATION FAILED");
 	}
 	return success;
 }

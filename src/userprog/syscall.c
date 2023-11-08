@@ -8,11 +8,15 @@
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "vm/page.h"
+#include "vm/frame.h"
 
 static void syscall_handler(struct intr_frame*);
 
 #define SYSCALL_NUM_MIN 0
-#define SYSCALL_NUM_MAX 13
+#define SYSCALL_NUM_MAX 15
+
+typedef int mapid_t;
 
 int syscall_argc[SYSCALL_NUM_MAX];
 void* syscall_func[SYSCALL_NUM_MAX];
@@ -229,9 +233,83 @@ void syscall_close(int fd){
 		exit_special();
 	}
 }
+
+// MMAP
+mapid_t syscall_mmap(int fd, void* addr){
+	if (fd < 2 || addr == NULL || pg_ofs(addr) != 0){
+		return -1;
+	}
+	struct thread* cur = thread_current();
+	struct thread_file* thread_file = get_file(&cur, fd);
+	if(thread_file == NULL){
+		return -1;
+	}
+
+	size_t file_size = file_length(thread_file->file);
+	if (file_size == 0){
+		return -1;
+	}
+
+	struct hash* page_table = &cur->page_table;
+	for(size_t offset = 0; offset < file_size; offset += PGSIZE){
+		if(page_find(page_table, addr + offset)){
+			return -1;
+		}
+	}
+
+	struct thread_mmap* thread_mmap = malloc(sizeof(struct thread_mmap));
+	thread_mmap->file = file_reopen(thread_file->file);
+	thread_mmap->mapped_addr = addr;
+
+	for(size_t offset = 0; offset < file_size; offset += PGSIZE){
+		size_t page_read_bytes = file_size - (offset < PGSIZE ? file_size - offset : PGSIZE);
+		Page* page = page_create_out_stack(page_table, addr+offset, 1,
+			thread_mmap->file, offset, page_read_bytes);
+		if(page == NULL){
+			for(size_t i = 0; i < offset; i += PGSIZE){
+				Page* del_page = page_find(page_table, addr + i);
+				page_free(page_table, page);
+			}
+			free(thread_mmap);
+			return -1;
+		}
+	}
+	thread_mmap->mapid = cur->self_mapid++;
+	list_push_back(&cur->mmap_list, &thread_mmap->elem);
+	return thread_mmap->mapid;
+}
+
+void syscall_munmap(mapid_t mapid){
+	struct thread *t = thread_current ();
+	struct list *mmap_list = &t->mmap_list;
+	struct list_elem *e;
+	struct thread_mmap *thread_mmap = NULL;
+	for (e = list_begin (mmap_list); e != list_end (mmap_list);
+		e = list_next (e))
+		if (list_entry (e, struct thread_mmap, elem)->mapid == mapid)
+		{
+			thread_mmap = list_entry (e, struct thread_mmap, elem);
+			break;
+		}
+	if (thread_mmap == NULL){
+		exit_special();
+	}
+	size_t file_size = file_length (thread_mmap->file);
+	for (size_t offset = 0; offset < file_size; offset += PGSIZE)
+		{
+		struct page *page = page_find (&thread_current ()->page_table,
+										thread_mmap->mapped_addr + offset);
+		page_free(&t->page_table, page);
+		}
+	file_close (thread_mmap->file);
+	list_remove (&thread_mmap->elem);
+	free (thread_mmap);
+}
+
 void syscall_init(void){
 	intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 
+	/* Project 2*/
 	syscall_argc[SYS_HALT] = 0;
 	syscall_func[SYS_HALT] = (void*)syscall_halt;
 
@@ -270,6 +348,13 @@ void syscall_init(void){
 
 	syscall_argc[SYS_CLOSE] = 1;
 	syscall_func[SYS_CLOSE] = (void*)syscall_close;
+
+	/* Project 3 */
+	syscall_argc[SYS_MMAP] = 2;
+	syscall_func[SYS_MMAP] = (void*)syscall_mmap;
+
+	syscall_argc[SYS_MUNMAP] = 1;
+	syscall_func[SYS_MUNMAP] = (void*)syscall_munmap;
 }
 
 static void syscall_handler(struct intr_frame* f){
