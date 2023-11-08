@@ -5,6 +5,7 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 #include "userprog/process.h"
+#include "userprog/pagedir.h"
 #include "frame.h"
 
 // From userprog
@@ -115,15 +116,16 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
         if (!addr_in_stack(addr, esp)) {
             return false;
         }
-        Page* page = page_create_on_stack(page_table, addr);
+        page = page_create_on_stack(page_table, addr);
         page->writable = true;
     }
     // Install Page
-    if (!install_page(page->user_virtual_addr, page->frame->frame, page->file_writable)){
-        frame_free(page->frame->frame);
+    if (!install_page(page->user_virtual_addr, page->frame->frame, true)){
+        page_free(page_table, page);
+        //puts("===FAILED TO INSTALL PAGE===");
         return false;
     }
-    //"===SUCESSFULLY HANDLE PAGE FAULT===");
+    //puts("===SUCESSFULLY HANDLE PAGE FAULT===");
     return true;
 }
 
