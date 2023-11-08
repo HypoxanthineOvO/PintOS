@@ -398,12 +398,13 @@ static bool setup_stack(void **esp, const char* command) {
 	uint8_t *kpage;
 	bool success = false;
 
-	kpage = palloc_get_page(PAL_USER | PAL_ZERO);
-	// Page* page = page_create_on_stack(
-	// 	((uint8_t *)PHYS_BASE) - PGSIZE
-	// );
-	// page->writable = true;
-	// kpage = page->frame->frame;
+	//kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+	Page* page = page_create_on_stack(
+		&thread_current()->page_table,
+		((uint8_t *)PHYS_BASE) - PGSIZE
+	);
+	page->writable = true;
+	kpage = page->frame->frame;
 	
 	if (kpage != NULL) {
 		success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
@@ -412,8 +413,9 @@ static bool setup_stack(void **esp, const char* command) {
 			success = push_arguments_to_stack(esp, command);
 		}
 		else{
-			palloc_free_page(kpage);
-			//page_free(&thread_current()->page_table, page);	
+			//palloc_free_page(kpage);
+			//puts("PAGE ALLOCATION FAILED");
+			page_free(&thread_current()->page_table, page);	
 		}
 	}
 	else{

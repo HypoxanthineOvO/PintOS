@@ -76,6 +76,8 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
     if (addr == 0 || !is_user_vaddr(addr)) {
         return false;
     }
+    //puts("PAGE FAULT HANDLER");
+    //printf("ADDR, ESP: %p, %d\n", addr, esp);
     // Try Get Page
     Page* page = page_find(page_table, addr);
     if (page){
@@ -113,7 +115,7 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
         if (!addr_in_stack(addr, esp)) {
             return false;
         }
-        Page* page = page_create_on_stack(addr);
+        Page* page = page_create_on_stack(page_table, addr);
         page->writable = true;
     }
     // Install Page
@@ -121,36 +123,29 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
         frame_free(page->frame->frame);
         return false;
     }
-    //puts("===SUCESSFULLY HANDLE PAGE FAULT===");
+    //"===SUCESSFULLY HANDLE PAGE FAULT===");
     return true;
 }
 
-Page* page_create_on_stack(void* addr){
-    struct thread* cur = thread_current();
+Page* page_create_on_stack(Hash* table, void* addr){
     Page* page = malloc(sizeof(Page));
-    page->user_virtual_addr = pg_round_down(addr);
-    page->file = NULL;
-
-    page->access_time = timer_ticks();
-    page->writable = true;
-    page->in_stack = true;
-    if (page == NULL) return false;
-
-    /* Allocate New Frame */
-    Frame* frame = frame_alloc(page);
-    page->frame = frame;
-    bool success = (
-        install_page(page->user_virtual_addr, frame->frame, true)
-        &&
-        // Page Exists
-        !hash_insert(&cur->page_table, &page->elem)
-    );
-    if (!success){
-        frame_free(frame);
-        return false;
+    if (page == NULL) {
+        return NULL;
     }
+    page->user_virtual_addr = pg_round_down(addr);
+    page->frame = frame_alloc(page);
+    if(page->frame == NULL){
+        free(page);
+        return NULL;
+    }
+    page->file = NULL;
     page->in_stack = true;
 
+    if (hash_insert(table, &page->elem)){
+        free(page);
+        ASSERT(false);
+        return NULL;
+    }
     return page;
 }
 

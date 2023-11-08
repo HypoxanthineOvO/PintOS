@@ -32,6 +32,6 @@ void page_table_destroy(Hash*);
 Page* page_find(Hash* , void* );
 void page_free(Hash* , Page*);
 bool page_fault_handler(Hash* , void* , void* , bool);
-Page* page_create_on_stack(void*);
+Page* page_create_on_stack(Hash*, void*);
 Page* page_create_out_stack(Hash*, void*, bool, struct file*, int32_t, uint32_t);
 #endif // VM_PAGE_H
