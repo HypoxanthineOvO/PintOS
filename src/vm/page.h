@@ -17,7 +17,6 @@ typedef struct sup_page_entry{
     // File
     struct file* file;
     int32_t file_offset;
-    bool file_writable;
     uint32_t file_size;
 
     // Type Flag

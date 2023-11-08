@@ -29,11 +29,17 @@ void exit_special() {
 
 static int get_user(const uint8_t* uaddr) {
 	int result;
-	asm("movl $1f, %0; movzbl %1, %0; 1:" : "=&a" (result) : "m" (*uaddr));
+	asm("movl $1f, %0; movzbl %1, %0; 1:" : "=&a"(result) : "m"(*uaddr));
 	return result;
 }
 
-
+static bool put_user (uint8_t *udst, uint8_t byte) {
+	int error_code;
+	asm("movl $1f, %0; movb %b2, %1; 1:"
+		: "=&a"(error_code), "=m"(*udst)
+		: "q"(byte));
+	return error_code != -1;
+}
 void check_pt(int const* vaddr){
 	uint8_t* check_byteptr = (uint8_t*)vaddr;
 	for(uint8_t i = 0; i < 4; i++){
@@ -43,13 +49,18 @@ void check_pt(int const* vaddr){
 	}
 }
 
-void check_buffer(uint8_t const* buffer, unsigned int size){
+
+void check_buffer_write(uint8_t const* buffer, unsigned size){
 	if(!is_user_vaddr(buffer) || !is_user_vaddr(buffer + size - 1)
 		|| get_user(buffer) == -1 || get_user(buffer + size - 1) == -1){
 		exit_special();
 	}
 }
-
+void check_buffer_read(uint8_t const* buffer, unsigned size){
+	check_buffer_write(buffer, size);
+	put_user(buffer, get_user(buffer));
+	put_user(buffer+size-1, get_user(buffer + size - 1));
+}
 void check_string(char const* str){
 	while(1){
 		if(!is_user_vaddr(str)) exit_special();
@@ -148,7 +159,10 @@ int syscall_filesize(int fd){
 
 // Read
 int syscall_read(int fd, uint8_t* buffer, unsigned length){
-	check_buffer(buffer, length);
+	//printf("BUFFER: %d, SIZE: %d\n", buffer, length);
+	//printf("buffer + length - 1: %d\n", buffer + length - 1);
+	//printf("%d %d %d %d\n", is_user_vaddr(buffer), is_user_vaddr(buffer + length - 1), get_user(buffer) ,get_user(buffer + length - 1));
+	check_buffer_read(buffer, length);
 	if (fd == 0){
 		// Read from Console
 		for (int i = 0; i < length; i++){
@@ -171,7 +185,7 @@ int syscall_read(int fd, uint8_t* buffer, unsigned length){
 }
 // Write
 int syscall_write(int fd, const void* buffer, unsigned length){
-	check_buffer(buffer, length);
+	check_buffer_write(buffer, length);
 	if (fd == 1){
 		// Write to Console
 		putbuf((const char*)buffer, length);

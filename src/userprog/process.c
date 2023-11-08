@@ -397,14 +397,14 @@ static bool push_arguments_to_stack(void** esp, const char* argument_string){
 static bool setup_stack(void **esp, const char* command) {
 	uint8_t *kpage;
 	bool success = false;
-
+	struct thread* cur = thread_current();
 	//kpage = palloc_get_page(PAL_USER | PAL_ZERO);
 	Page* page = page_create_on_stack(
-		&thread_current()->page_table,
+		&cur->page_table,
 		((uint8_t *)PHYS_BASE) - PGSIZE
 	);
 	page->writable = true;
-	kpage = page->frame->frame;
+	kpage = page->frame->kpage;
 	
 	if (kpage != NULL) {
 		success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
@@ -415,7 +415,7 @@ static bool setup_stack(void **esp, const char* command) {
 		else{
 			//palloc_free_page(kpage);
 			//puts("PAGE ALLOCATION FAILED");
-			page_free(&thread_current()->page_table, page);	
+			page_free(&cur->page_table, page);	
 		}
 	}
 	else{
@@ -501,7 +501,6 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
 		#ifdef VM
-		
 		if (page_read_bytes == 0){
 			//puts("READ BYTES == 0");
 			Page* page = page_create_out_stack(
@@ -518,7 +517,6 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 			ASSERT (page);
 		}
 		#else
-		puts("RUN WITHOUT VM!!!!!");
 		/* Get a page of memory. */
 		uint8_t *kpage = palloc_get_page(PAL_USER);
 		if (kpage == NULL)

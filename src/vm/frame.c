@@ -8,13 +8,13 @@ struct lock frame_lock;
 // Utils
 static unsigned frame_hash (const struct hash_elem *e, void *aux UNUSED) {
     const Frame *f = hash_entry (e, Frame, elem);
-    return hash_bytes (&f->frame, sizeof (void *));
+    return hash_bytes (&f->kpage, sizeof (void *));
 }
 
 static frame_less(const struct hash_elem* a, const struct hash_elem* b){
     const Frame* x = hash_entry(a, Frame, elem);
     const Frame* y = hash_entry(b, Frame, elem);
-    return x->frame < y->frame;
+    return x->kpage < y->kpage;
 };
 
 
@@ -36,7 +36,7 @@ Frame* frame_alloc(Page* user_page){
         puts("Frame allocation failed");
         return NULL;
     }
-    frame->frame = kernel_page;
+    frame->kpage = kernel_page;
     frame->corres_page = user_page;
     hash_insert(&frame_table, &frame->elem);
     frame->owner = thread_current();
@@ -51,7 +51,7 @@ void frame_free(void* frame_addr){
     hash_first(&it, &frame_table);
     while(hash_next(&it)){
         Frame* frame = hash_entry(hash_cur(&it), Frame, elem);
-        if (frame->frame == frame_addr){
+        if (frame->kpage == frame_addr){
             hash_delete(&frame_table, hash_cur(&it));
             palloc_free_page(frame_addr);
             free(frame);

@@ -9,6 +9,10 @@
         "string": "c",
         "hash.h": "c",
         "thread.h": "c",
-        "syscall-nr.h": "c"
+        "syscall-nr.h": "c",
+        "array": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "utility": "c"
     }
 }

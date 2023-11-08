@@ -8,7 +8,7 @@
 extern struct lock frame_lock;
 
 typedef struct frame_table_entry{
-    void* frame; // Address of Frame
+    void* kpage; // Address of Frame
     Page* corres_page; // corresponding user page
     struct thread* owner;
 

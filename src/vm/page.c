@@ -32,9 +32,6 @@ static bool page_less (const struct hash_elem *a, const struct hash_elem *b,
 
 void page_table_init(Hash* table){
     hash_init(table, page_hash, page_less, NULL);
-    // puts("=== Page Table Initialized ===");
-    // printf("Hash Table Size: %d\n", table->bucket_cnt);
-    // printf("Elem Count: %d\n", table->elem_cnt);
 }
 
 void page_table_destroy(Hash* table){
@@ -45,7 +42,6 @@ void page_table_destroy(Hash* table){
         hash_next(&it);
         Page* page = hash_entry(hash_cur(&it), Page, elem);
         page_free(table, page);
-        
     }
     //lock_release(&frame_lock);
     hash_destroy(table, NULL);
@@ -65,8 +61,28 @@ Page* page_find(Hash* table, void* addr){
 
 void page_free(Hash* table, Page* page){
     // Free page's source
-    // TODO
-
+    if (page->file) {
+        if (page->frame && pagedir_is_dirty(page->frame->owner->pagedir, page->user_virtual_addr)){
+            // Write Back
+            file_write_at(
+                page->file, page->user_virtual_addr, page->file_size, page->file_offset
+            );
+            frame_free(page->frame);
+            page->frame = NULL;
+        }
+    }
+    else {
+        // File == NULL
+        // mmap page
+        if (page->frame){
+            // Do Frame Free
+            frame_free(page->frame);
+        }
+        else{
+            // Swap Free
+            // TODO
+        }
+    }
     // Remove from hash table
     hash_delete(table, &page->elem);
     free(page);
@@ -83,7 +99,7 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
     Page* page = page_find(page_table, addr);
     if (page){
         /* Permission Check */
-        if(!page->file_writable && read_write_state){
+        if(!page->writable && read_write_state){
             return false;
         }
         /* Memory Location Check */
@@ -97,18 +113,18 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
             page->frame = frame_alloc(page);
             if (page->frame == NULL) return false;
             size_t bytes_read = file_read_at(
-                page->file, page->frame->frame, page->file_size, page->file_offset
+                page->file, page->frame->kpage, page->file_size, page->file_offset
             );
             
             if (bytes_read != page->file_size) return false;
             memset(
-                page->frame->frame + page->file_size, 0, PGSIZE - page->file_size
+                page->frame->kpage + page->file_size, 0, PGSIZE - page->file_size
             );
         }
         else{
             // Load From Swap
             page->frame = frame_alloc(page);
-            memset(page->frame->frame, 0, PGSIZE);
+            memset(page->frame->kpage, 0, PGSIZE);
         }
     }
     else {
@@ -120,9 +136,9 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
         page->writable = true;
     }
     // Install Page
-    if (!install_page(page->user_virtual_addr, page->frame->frame, true)){
+    if (!install_page(page->user_virtual_addr, page->frame->kpage, page->writable)){
         page_free(page_table, page);
-        //puts("===FAILED TO INSTALL PAGE===");
+        puts("===FAILED TO INSTALL PAGE===");
         return false;
     }
     //puts("===SUCESSFULLY HANDLE PAGE FAULT===");
@@ -130,6 +146,7 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
 }
 
 Page* page_create_on_stack(Hash* table, void* addr){
+    //puts("CREATE STACK!!!");
     Page* page = malloc(sizeof(Page));
     if (page == NULL) {
         return NULL;
@@ -141,6 +158,7 @@ Page* page_create_on_stack(Hash* table, void* addr){
         return NULL;
     }
     page->file = NULL;
+    page->writable = true;
     page->in_stack = true;
 
     if (hash_insert(table, &page->elem)){
@@ -155,6 +173,7 @@ Page* page_create_out_stack(
     Hash* page_table, void* user_addr, bool writable, 
     struct file* file, int32_t file_offset, uint32_t file_size
 ){
+    //puts("CREATE NOT STACK!!!!");
     Page* page = malloc(sizeof(Page));
     if (page == NULL) return NULL;
     //puts("=== Page Created ===");
@@ -162,8 +181,8 @@ Page* page_create_out_stack(
     page->user_virtual_addr = pg_round_down(user_addr);
     page->file = file;
     page->file_offset = file_offset;
-    page->file_writable = writable;
     page->file_size = file_size;
+    page->writable = writable;
     page->in_stack = false;
     if (hash_insert(page_table, &page->elem)){
         free(page);
