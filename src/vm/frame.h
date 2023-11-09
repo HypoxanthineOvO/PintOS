@@ -19,6 +19,6 @@ typedef struct frame_table_entry{
 
 void* frame_table_init(void);
 Frame* frame_alloc(Page*);
-void frame_free(void*);
+void frame_free(Frame*);
 void frame_evict(void);
 #endif // VM_FRAME_H

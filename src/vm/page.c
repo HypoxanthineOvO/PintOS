@@ -1,6 +1,7 @@
 #include "page.h"
 
 #include <bitmap.h>
+#include <stdlib.h>
 #include "devices/timer.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -80,6 +81,7 @@ void page_free(Hash* table, Page* page){
             ASSERT(page->swap_index == BITMAP_ERROR);
             // Do Frame Free
             frame_free(page->frame);
+            page->frame = NULL;
         }
         else{
             // Swap Free
@@ -123,6 +125,7 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
         else if (page->file){
             // Load From File
             page->frame = frame_alloc(page);
+            ASSERT (page->frame);
             if (page->frame == NULL) {
                 lock_release(&frame_lock);
                 return false;
@@ -130,25 +133,22 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
             size_t bytes_read = file_read_at(
                 page->file, page->frame->kpage, page->file_size, page->file_offset
             );
-            
-            if (bytes_read != page->file_size) {
-                lock_release(&frame_lock);
-                return false;
-            }
+            ASSERT (bytes_read == page->file_size);
             memset(
                 page->frame->kpage + page->file_size, 0, PGSIZE - page->file_size
             );
         }
         else{
-            // Load From Swap
+            ASSERT (page->frame == NULL);
             page->frame = frame_alloc(page);
+            ASSERT (page->frame);
             memset(page->frame->kpage, 0, PGSIZE);
         }
     }
     else {
         // Grow Stack
         if (!addr_in_stack(addr, esp)) {
-                lock_release(&frame_lock);
+            lock_release(&frame_lock);
             return false;
         }
         page = page_create_on_stack(page_table, addr);
@@ -158,7 +158,7 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
     if (!install_page(page->user_virtual_addr, page->frame->kpage, page->writable)){
         page_free(page_table, page);
         puts("===FAILED TO INSTALL PAGE===");
-                lock_release(&frame_lock);
+        lock_release(&frame_lock);
         return false;
     }
     //puts("===SUCESSFULLY HANDLE PAGE FAULT===");
@@ -183,6 +183,8 @@ Page* page_create_on_stack(Hash* table, void* addr){
     page->in_stack = true;
     page->swap_index = BITMAP_ERROR;
 
+    memset(page->frame->kpage, 0, PGSIZE);
+    //printf("MEMSET OBJECT: %p\n", page->frame->kpage);
     if (hash_insert(table, &page->elem)){
         free(page);
         ASSERT(false);
@@ -201,9 +203,12 @@ Page* page_create_out_stack(
     //puts("=== Page Created ===");
     
     page->user_virtual_addr = pg_round_down(user_addr);
+    page->frame = NULL;
+
     page->file = file;
     page->file_offset = file_offset;
     page->file_size = file_size;
+    
     page->writable = writable;
     page->in_stack = false;
     page->swap_index = BITMAP_ERROR;

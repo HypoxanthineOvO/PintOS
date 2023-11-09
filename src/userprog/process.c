@@ -81,7 +81,6 @@ static void start_process(void *file_name_) {
 	if_.eflags = FLAG_IF | FLAG_MBS;
 	success = load(command, &if_.eip, &if_.esp);
 	if(success) {
-		
 		thread_current()->parent->success = true;
 		sema_up(&thread_current()->parent->sema);
 	}
@@ -135,19 +134,21 @@ int process_wait(tid_t child_tid) {
 /* Free the current process's resources. */
 void process_exit(void) {
 	struct thread *cur = thread_current();
-	uint32_t *pd;
+	
 	#ifdef VM
 	page_table_destroy(&cur->page_table);
 	for(struct list_elem* e = list_begin(&cur->mmap_list);
-		e != list_end(&cur->mmap_list); e = list_next(e)){
+						e != list_end(&cur->mmap_list);){
 			struct thread_mmap* thread_mmap = list_entry(e, struct thread_mmap, elem);
+			e = list_next(e);
 			free(thread_mmap);
 		}
 	#endif
 	/* Destroy the current process's page directory and switch back
 	   to the kernel-only page directory. */
+	uint32_t *pd;
 	pd = cur->pagedir;
-
+	
 	if (pd != NULL) {
 		/* Correct ordering here is crucial.  We must set
 		   cur->pagedir to NULL before switching page directories,
@@ -160,7 +161,6 @@ void process_exit(void) {
 		pagedir_activate(NULL);
 		pagedir_destroy(pd);
 	}
-
 }
 
 /* Sets up the CPU for running user code in the current

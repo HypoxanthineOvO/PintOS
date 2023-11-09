@@ -72,20 +72,24 @@ void check_string(char const* str){
 }
 
 struct thread_file* get_file(struct thread* thread, int fd){
-	struct file_list* file_list = &thread->file_list;
+	struct list* file_list = &thread->file_list;
+	
 	struct thread_file* thread_file = NULL;
+	
 	struct list_elem* e;
 	for(
 		e = list_begin(file_list);
 		e != list_end(file_list);
 		e = list_next(e)
 	){
+		
 		thread_file = list_entry(e, struct thread_file, file_elem);
 		if (thread_file->file_descriptor == fd){
-			break;
+			return thread_file;
 		}
+		
 	}
-	return thread_file;
+	return NULL;
 }
 
 /* Systemcall Function Implementation */
@@ -126,7 +130,9 @@ bool syscall_remove(const char* file){
 
 // Open
 int syscall_open(const char* file){
+	//printf("OPEN? %s\n", file);
 	check_string(file);
+	//printf("OPEN: [%s]\n", file);
 	// Use filesys_open
 	struct file* file_ptr = filesys_open(file);
 	if (file_ptr == NULL){
@@ -137,6 +143,7 @@ int syscall_open(const char* file){
 	struct thread_file* thread_file = malloc(sizeof(struct thread_file));
 	thread_file->file = file_ptr;
 	thread_file->file_descriptor = current_thread->self_fd++;
+	
 	list_push_back(&current_thread->file_list, &thread_file->file_elem);
 	return thread_file->file_descriptor;
 }
@@ -159,9 +166,6 @@ int syscall_filesize(int fd){
 
 // Read
 int syscall_read(int fd, uint8_t* buffer, unsigned length){
-	//printf("BUFFER: %d, SIZE: %d\n", buffer, length);
-	//printf("buffer + length - 1: %d\n", buffer + length - 1);
-	//printf("%d %d %d %d\n", is_user_vaddr(buffer), is_user_vaddr(buffer + length - 1), get_user(buffer) ,get_user(buffer + length - 1));
 	//puts("SYSCALL READ");
 	check_buffer_read(buffer, length);
 	//puts("CHECK DONE");
@@ -256,7 +260,9 @@ mapid_t syscall_mmap(int fd, void* addr){
 		return -1;
 	}
 	struct thread* cur = thread_current();
-	struct thread_file* thread_file = get_file(&cur, fd);
+
+	struct thread_file* thread_file = get_file(cur, fd);
+
 	if(thread_file == NULL){
 		return -1;
 	}
@@ -279,7 +285,7 @@ mapid_t syscall_mmap(int fd, void* addr){
 	thread_mmap->mapped_addr = addr;
 
 	for(size_t offset = 0; offset < file_size; offset += PGSIZE){
-		size_t page_read_bytes = file_size - (offset < PGSIZE ? file_size - offset : PGSIZE);
+		size_t page_read_bytes = file_size - offset < PGSIZE ? file_size - offset : PGSIZE;
 		Page* page = page_create_out_stack(page_table, addr+offset, 1,
 			thread_mmap->file, offset, page_read_bytes);
 		if(page == NULL){
@@ -317,7 +323,7 @@ void syscall_munmap(mapid_t mapid){
 	size_t file_size = file_length (thread_mmap->file);
 	for (size_t offset = 0; offset < file_size; offset += PGSIZE)
 		{
-		struct page *page = page_find (&thread_current ()->page_table,
+		struct page *page = page_find (&t->page_table,
 										thread_mmap->mapped_addr + offset);
 		page_free(&t->page_table, page);
 		}
@@ -401,6 +407,9 @@ static void syscall_handler(struct intr_frame* f){
 		argv[i] = *arg;
 	}
 	//printf("SYSCALL HANDLER: ESP = %p\n", f->esp);
+	//printf("SYSCALL! CODE: %d\n", sys_code);
+	//printf("");
+	//printf("=============================%d\n", sys_code);
 	int ret_val = 0;
 	switch (argc) {
 		case 0:

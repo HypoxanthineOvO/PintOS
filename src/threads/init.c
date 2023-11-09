@@ -31,6 +31,12 @@
 #else
 #include "tests/threads/tests.h"
 #endif
+
+#ifdef VM
+#include "vm/frame.h"
+#include "vm/swap.h"
+#endif
+
 #ifdef FILESYS
 #include "devices/block.h"
 #include "devices/ide.h"
@@ -119,10 +125,7 @@ int main(void)
 	serial_init_queue();
 	timer_calibrate();
 
-/* Project 3 */
-#ifdef VM
-	frame_table_init();
-#endif
+
 
 #ifdef FILESYS
 	/* Initialize file system. */
@@ -130,7 +133,11 @@ int main(void)
 	locate_block_devices();
 	filesys_init(format_filesys);
 #endif
-
+/* Project 3 */
+#ifdef VM
+	frame_table_init();
+	swap_init();
+#endif
 	printf("Boot complete.\n");
 
 	/* Run actions specified on kernel command line. */
