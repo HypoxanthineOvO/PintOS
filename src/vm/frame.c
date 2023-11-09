@@ -1,4 +1,7 @@
 #include "frame.h"
+
+#include <hash.h>
+
 #include "threads/palloc.h"
 #include "userprog/pagedir.h"
 
@@ -27,9 +30,10 @@ Frame* frame_alloc(Page* user_page){
     void* kernel_page = palloc_get_page(PAL_USER);
     if (kernel_page == NULL) {
         // Evict
-        // TODO
+        frame_evict();
 
-        return NULL;
+        kernel_page = palloc_get_page(PAL_USER);
+        if(kernel_page == NULL)return NULL;
     }
     Frame* frame = malloc(sizeof(Frame));
     if (frame == NULL){
@@ -40,6 +44,7 @@ Frame* frame_alloc(Page* user_page){
     frame->corres_page = user_page;
     hash_insert(&frame_table, &frame->elem);
     frame->owner = thread_current();
+    frame->flag = 1;
     return frame;
 }
 
@@ -59,4 +64,20 @@ void frame_free(void* frame_addr){
         }
     }
     //lock_release(&frame_lock);
+}
+
+void frame_evict(){
+    struct hash_iterator it;
+    hash_first(&it, &frame_table);
+    Frame* frame = NULL;
+    while(hash_next(&it)){
+        frame = hash_entry(hash_cur(&it), Frame, elem);
+        if (frame->owner->tid == 0) continue;
+        if (frame->flag == 0) break;
+        frame->flag = 0;
+    }
+    if (frame == NULL) return;
+    swap_out(frame->corres_page);
+    frame_free(frame);
+    return;
 }

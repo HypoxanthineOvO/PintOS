@@ -374,7 +374,7 @@ static bool push_arguments_to_stack(void** esp, const char* argument_string){
 		token = strtok_r(NULL, " ", &save_ptr);
 	}
 
-	*esp = (int)*esp & 0xfffffffc; // Wprd Align
+	*esp = (int)*esp & 0xfffffffc; // Word Align
 	*esp -= 4;
 	*(int*)*esp = 0;
 	for(int i = argc - 1; i >= 0; i--){

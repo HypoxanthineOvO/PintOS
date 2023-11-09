@@ -13,9 +13,12 @@ typedef struct frame_table_entry{
     struct thread* owner;
 
     struct hash_elem elem; // For frame table
+
+    int flag;
 } Frame;
 
 void* frame_table_init(void);
 Frame* frame_alloc(Page*);
 void frame_free(void*);
+void frame_evict(void);
 #endif // VM_FRAME_H

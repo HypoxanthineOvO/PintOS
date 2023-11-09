@@ -1,5 +1,6 @@
 #include "page.h"
 
+#include <bitmap.h>
 #include "devices/timer.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -7,6 +8,7 @@
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
 #include "frame.h"
+#include "swap.h"
 
 // From userprog
 extern bool install_page (void *, void *, bool);
@@ -75,12 +77,15 @@ void page_free(Hash* table, Page* page){
         // File == NULL
         // mmap page
         if (page->frame){
+            ASSERT(page->swap_index == BITMAP_ERROR);
             // Do Frame Free
             frame_free(page->frame);
         }
         else{
             // Swap Free
-            // TODO
+            if (page->swap_index != BITMAP_ERROR){
+                swap_free(page->swap_index);
+            }
         }
     }
     // Remove from hash table
@@ -93,8 +98,8 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
     if (addr == 0 || !is_user_vaddr(addr)) {
         return false;
     }
-    //puts("PAGE FAULT HANDLER");
-    //printf("ADDR, ESP: %p, %d\n", addr, esp);
+    //puts("=====PAGE FAULT HANDLER=====");
+    //printf("ADDR, ESP: %p, %p\n", addr, esp);
     // Try Get Page
     Page* page = page_find(page_table, addr);
     if (page){
@@ -108,7 +113,11 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
         }
 
         // Check From File or From Swap
-        if (page->file){
+        if (page->swap_index != BITMAP_ERROR){
+            page->frame = frame_alloc(page);
+            swap_in(page);
+        }
+        else if (page->file){
             // Load From File
             page->frame = frame_alloc(page);
             if (page->frame == NULL) return false;
@@ -160,6 +169,7 @@ Page* page_create_on_stack(Hash* table, void* addr){
     page->file = NULL;
     page->writable = true;
     page->in_stack = true;
+    page->swap_index = BITMAP_ERROR;
 
     if (hash_insert(table, &page->elem)){
         free(page);
@@ -184,6 +194,7 @@ Page* page_create_out_stack(
     page->file_size = file_size;
     page->writable = writable;
     page->in_stack = false;
+    page->swap_index = BITMAP_ERROR;
     if (hash_insert(page_table, &page->elem)){
         free(page);
         ASSERT(false);

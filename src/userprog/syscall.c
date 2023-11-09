@@ -162,7 +162,9 @@ int syscall_read(int fd, uint8_t* buffer, unsigned length){
 	//printf("BUFFER: %d, SIZE: %d\n", buffer, length);
 	//printf("buffer + length - 1: %d\n", buffer + length - 1);
 	//printf("%d %d %d %d\n", is_user_vaddr(buffer), is_user_vaddr(buffer + length - 1), get_user(buffer) ,get_user(buffer + length - 1));
+	//puts("SYSCALL READ");
 	check_buffer_read(buffer, length);
+	//puts("CHECK DONE");
 	if (fd == 0){
 		// Read from Console
 		for (int i = 0; i < length; i++){
@@ -393,7 +395,7 @@ static void syscall_handler(struct intr_frame* f){
 		check_pt(arg);
 		argv[i] = *arg;
 	}
-
+	//printf("SYSCALL HANDLER: ESP = %p\n", f->esp);
 	int ret_val = 0;
 	switch (argc) {
 		case 0:
