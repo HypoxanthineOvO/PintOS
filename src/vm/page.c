@@ -37,7 +37,7 @@ void page_table_init(Hash* table){
 }
 
 void page_table_destroy(Hash* table){
-    //lock_acquire(&frame_lock);
+    lock_acquire(&frame_lock);
     while(table->elem_cnt){
         struct hash_iterator it;
         hash_first(&it, table);
@@ -45,7 +45,7 @@ void page_table_destroy(Hash* table){
         Page* page = hash_entry(hash_cur(&it), Page, elem);
         page_free(table, page);
     }
-    //lock_release(&frame_lock);
+    lock_release(&frame_lock);
     hash_destroy(table, NULL);
 }
 
@@ -100,15 +100,18 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
     }
     //puts("=====PAGE FAULT HANDLER=====");
     //printf("ADDR, ESP: %p, %p\n", addr, esp);
+    lock_acquire(&frame_lock);
     // Try Get Page
     Page* page = page_find(page_table, addr);
     if (page){
         /* Permission Check */
         if(!page->writable && read_write_state){
+            lock_release(&frame_lock);
             return false;
         }
         /* Memory Location Check */
         if (!addr_in_stack(addr, esp) && page->in_stack){
+            lock_release(&frame_lock);
             return false;
         }
 
@@ -120,12 +123,18 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
         else if (page->file){
             // Load From File
             page->frame = frame_alloc(page);
-            if (page->frame == NULL) return false;
+            if (page->frame == NULL) {
+                lock_release(&frame_lock);
+                return false;
+            }
             size_t bytes_read = file_read_at(
                 page->file, page->frame->kpage, page->file_size, page->file_offset
             );
             
-            if (bytes_read != page->file_size) return false;
+            if (bytes_read != page->file_size) {
+                lock_release(&frame_lock);
+                return false;
+            }
             memset(
                 page->frame->kpage + page->file_size, 0, PGSIZE - page->file_size
             );
@@ -139,6 +148,7 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
     else {
         // Grow Stack
         if (!addr_in_stack(addr, esp)) {
+                lock_release(&frame_lock);
             return false;
         }
         page = page_create_on_stack(page_table, addr);
@@ -148,9 +158,11 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
     if (!install_page(page->user_virtual_addr, page->frame->kpage, page->writable)){
         page_free(page_table, page);
         puts("===FAILED TO INSTALL PAGE===");
+                lock_release(&frame_lock);
         return false;
     }
     //puts("===SUCESSFULLY HANDLE PAGE FAULT===");
+    lock_release(&frame_lock);
     return true;
 }
 

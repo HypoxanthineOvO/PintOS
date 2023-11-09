@@ -395,6 +395,7 @@ static bool push_arguments_to_stack(void** esp, const char* argument_string){
    user virtual memory. */
 // static bool setup_stack(void **esp, const char *command)
 static bool setup_stack(void **esp, const char* command) {
+	lock_acquire(&frame_lock);
 	uint8_t *kpage;
 	bool success = false;
 	struct thread* cur = thread_current();
@@ -421,6 +422,7 @@ static bool setup_stack(void **esp, const char* command) {
 	else{
 		puts("PAGE ALLOCATION FAILED");
 	}
+	lock_release(&frame_lock);
 	return success;
 }
 
@@ -502,18 +504,20 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 
 		#ifdef VM
 		if (page_read_bytes == 0){
-			//puts("READ BYTES == 0");
+			lock_acquire(&frame_lock);
 			Page* page = page_create_out_stack(
 				page_table, upage, writable, NULL, 0, 0
 			);
+			lock_release(&frame_lock);
 			ASSERT (page);
 		}
 		else {
-			//printf("PAGE_READ_BYTES: %d\n", page_read_bytes);
+			lock_acquire(&frame_lock);
 			Page* page = page_create_out_stack(
 				page_table, upage, writable, file, ofs, page_read_bytes
 			);
 			ofs += page_read_bytes;
+			lock_release(&frame_lock);
 			ASSERT (page);
 		}
 		#else

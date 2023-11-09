@@ -265,10 +265,11 @@ mapid_t syscall_mmap(int fd, void* addr){
 	if (file_size == 0){
 		return -1;
 	}
-
+	lock_acquire(&frame_lock);
 	struct hash* page_table = &cur->page_table;
 	for(size_t offset = 0; offset < file_size; offset += PGSIZE){
 		if(page_find(page_table, addr + offset)){
+			lock_release(&frame_lock);
 			return -1;
 		}
 	}
@@ -287,15 +288,18 @@ mapid_t syscall_mmap(int fd, void* addr){
 				page_free(page_table, page);
 			}
 			free(thread_mmap);
+			lock_release(&frame_lock);
 			return -1;
 		}
 	}
 	thread_mmap->mapid = cur->self_mapid++;
 	list_push_back(&cur->mmap_list, &thread_mmap->elem);
+	lock_release(&frame_lock);
 	return thread_mmap->mapid;
 }
 
 void syscall_munmap(mapid_t mapid){
+	lock_acquire(&frame_lock);
 	struct thread *t = thread_current ();
 	struct list *mmap_list = &t->mmap_list;
 	struct list_elem *e;
@@ -320,6 +324,7 @@ void syscall_munmap(mapid_t mapid){
 	file_close (thread_mmap->file);
 	list_remove (&thread_mmap->elem);
 	free (thread_mmap);
+	lock_release(&frame_lock);
 }
 
 void syscall_init(void){

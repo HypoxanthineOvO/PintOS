@@ -50,7 +50,6 @@ Frame* frame_alloc(Page* user_page){
 
 void frame_free(void* frame_addr){
     if (frame_addr == NULL) return;
-    //lock_acquire(&frame_lock);
     // For Each Hash Table
     struct hash_iterator it;
     hash_first(&it, &frame_table);
@@ -63,7 +62,6 @@ void frame_free(void* frame_addr){
             break;
         }
     }
-    //lock_release(&frame_lock);
 }
 
 void frame_evict(){
