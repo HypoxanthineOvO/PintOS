@@ -161,6 +161,7 @@ void process_exit(void) {
 		pagedir_activate(NULL);
 		pagedir_destroy(pd);
 	}
+	
 }
 
 /* Sets up the CPU for running user code in the current
@@ -362,32 +363,64 @@ done:
 
 /* Our setup stack and it's helpers */
 static bool push_arguments_to_stack(void** esp, const char* argument_string){
-	// Generally esp is 0xc0000000
-	int argc = 0, argv[128];
-	char* save_ptr;
-	char* token = strtok_r(argument_string, " ", &save_ptr);
-	/* Noticed that the order of them are not important, because we use pointer to refer them */
-	while(token){
-		*esp -= (strlen(token) + 1);
-		memcpy(*esp, token, strlen(token) + 1); // Copy token to stack
-		argv[argc++] = (int)*esp;
-		token = strtok_r(NULL, " ", &save_ptr);
-	}
+	// // Generally esp is 0xc0000000
+	// int argc = 0, argv[128];
+	// char* save_ptr;
+	// char* token = strtok_r(argument_string, " ", &save_ptr);
+	// /* Noticed that the order of them are not important, because we use pointer to refer them */
+	// while(token){
+	// 	*esp -= (strlen(token) + 1);
+	// 	memcpy(*esp, token, strlen(token) + 1); // Copy token to stack
+	// 	argv[argc++] = (int)*esp;
+	// 	token = strtok_r(NULL, " ", &save_ptr);
+	// }
 
-	*esp = (int)*esp & 0xfffffffc; // Word Align
-	*esp -= 4;
-	*(int*)*esp = 0;
-	for(int i = argc - 1; i >= 0; i--){
-		*esp -= 4;
-		*(int*)*esp = argv[i]; // Address of argv[i]
-	}
-	*esp -= 4;
-	*(int*)*esp =(int)*esp + 4; // Address of argv
-	*esp -= 4;
-	*(int*)*esp = argc;
-	*esp -= 4;
-	*(int*)*esp = 0;
-	return true;
+	// *esp = (int)*esp & 0xfffffffc; // Word Align
+	// *esp -= 4;
+	// *(int*)*esp = 0;
+	// for(int i = argc - 1; i >= 0; i--){
+	// 	*esp -= 4;
+	// 	*(int*)*esp = argv[i]; // Address of argv[i]
+	// }
+	// *esp -= 4;
+	// *(int*)*esp =(int)*esp + 4; // Address of argv
+	// *esp -= 4;
+	// *(int*)*esp = argc;
+	// *esp -= 4;
+	// *(int*)*esp = 0;
+	// return true;
+  uint8_t *top = PHYS_BASE;
+
+  unsigned int argument_length = strlen (argument_string) + 1;
+  if (argument_length > 1024)
+    return false;
+  memcpy (top -= argument_length, argument_string, argument_length);
+  char *stack_argument_string = (char *)top;
+
+  unsigned int argc = 0;
+  char *save_ptr;
+  for (char *token = strtok_r (stack_argument_string, " ", &save_ptr);
+       token != NULL; token = strtok_r (NULL, " ", &save_ptr))
+    {
+      *(char **)(top -= 4) = token;
+      argc++;
+    }
+  *(char **)(top -= 4) = NULL; /* The length of argv[] is argc + 1 */
+  char **argv = (char **)top;
+  /* Reverse argv[] */
+  for (char **front = argv, **back = argv + argc; front < back;
+       ++front, --back)
+    {
+      char *t = *front;
+      *front = *back;
+      *back = t;
+    }
+
+  *(char ***)(top -= 4) = argv;
+  *(int *)(top -= 4) = argc;
+  *(int *)(top -= 4) = 0; /* Return address, never used */
+  *esp = top;
+  return true;
 }
 /* load() helpers. */
 

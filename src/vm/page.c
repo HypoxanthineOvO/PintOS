@@ -156,6 +156,7 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
     }
     // Install Page
     if (!install_page(page->user_virtual_addr, page->frame->kpage, page->writable)){
+    //if (!pagedir_set_page(thread_current()->pagedir, page->user_virtual_addr, page->frame->kpage, page->writable)){
         page_free(page_table, page);
         puts("===FAILED TO INSTALL PAGE===");
         lock_release(&frame_lock);
@@ -184,7 +185,6 @@ Page* page_create_on_stack(Hash* table, void* addr){
     page->swap_index = BITMAP_ERROR;
 
     memset(page->frame->kpage, 0, PGSIZE);
-    //printf("MEMSET OBJECT: %p\n", page->frame->kpage);
     if (hash_insert(table, &page->elem)){
         free(page);
         ASSERT(false);
@@ -197,10 +197,8 @@ Page* page_create_out_stack(
     Hash* page_table, void* user_addr, bool writable, 
     struct file* file, int32_t file_offset, uint32_t file_size
 ){
-    //puts("CREATE NOT STACK!!!!");
     Page* page = malloc(sizeof(Page));
     if (page == NULL) return NULL;
-    //puts("=== Page Created ===");
     
     page->user_virtual_addr = pg_round_down(user_addr);
     page->frame = NULL;

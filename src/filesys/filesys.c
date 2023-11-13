@@ -36,9 +36,9 @@ filesys_init(bool format)
 void
 filesys_done(void)
 {
-	FILESYS_LOCK ();
+	//FILESYS_LOCK ();
 	free_map_close();
-	FILESYS_UNLOCK();
+	//FILESYS_UNLOCK();
 }
 
 /* Creates a file named NAME with the given INITIAL_SIZE.

@@ -38,16 +38,14 @@ struct file*
 {
 	FILESYS_LOCK();
 	struct file* file = calloc(1, sizeof * file);
-	if (inode != NULL && file != NULL)
-	{
+	if (inode != NULL && file != NULL) {
 		file->inode = inode;
 		file->pos = 0;
 		file->deny_write = false;
 		FILESYS_UNLOCK ();
 		return file;
 	}
-	else
-	{
+	else {
 		inode_close(inode);
 		free(file);
 		FILESYS_UNLOCK ();
@@ -72,11 +70,11 @@ file_close(struct file* file)
 {
 	if (file != NULL)
 	{
-		FILESYS_LOCK();
+		//FILESYS_LOCK();
 		file_allow_write(file);
 		inode_close(file->inode);
 		free(file);
-		FILESYS_UNLOCK ();
+		//FILESYS_UNLOCK ();
 	}
 }
 
@@ -172,14 +170,15 @@ file_deny_write(struct file* file)
 void
 file_allow_write(struct file* file)
 {
+		
+	//FILESYS_LOCK();
 	ASSERT(file != NULL);
-	FILESYS_LOCK();
 	if (file->deny_write)
 	{
 		file->deny_write = false;
 		inode_allow_write(file->inode);
 	}
-	FILESYS_UNLOCK ();
+	//FILESYS_UNLOCK ();
 }
 
 /* Returns the size of FILE in bytes. */

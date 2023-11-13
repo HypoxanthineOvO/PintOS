@@ -151,13 +151,13 @@ page_fault(struct intr_frame* f)
 
 	/* Project 3 */
 	#ifdef VM
+	struct thread* cur = thread_current();
 	/* Handle Page Fault */
-	if (page_fault_handler(&thread_current()->page_table, fault_addr, f->esp, write)){
+	if (page_fault_handler(&cur->page_table, fault_addr, cur->esp, write)){
 		return;
 	}
 	
 	#endif 
-	
 	if (user){
 		/* To implement virtual memory, delete the rest of the function
 		body, and replace it with code that brings in the page to

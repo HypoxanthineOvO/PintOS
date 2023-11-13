@@ -1,10 +1,11 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include "syscall.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "syscall.h"
+#include "userprog/process.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -42,15 +43,20 @@ static bool put_user (uint8_t *udst, uint8_t byte) {
 }
 void check_pt(int const* vaddr){
 	uint8_t* check_byteptr = (uint8_t*)vaddr;
-	for(uint8_t i = 0; i < 4; i++){
-		if(!is_user_vaddr(check_byteptr + i) || get_user(check_byteptr + i) == -1){
-			exit_special();
-		}
+	// for(uint8_t i = 0; i < 4; i++){
+	// 	if(!is_user_vaddr(check_byteptr + i) || get_user(check_byteptr + i) == -1){
+	// 		exit_special();
+	// 	}
+	// }
+	if (!is_user_vaddr(check_byteptr) || get_user(check_byteptr) == -1
+	|| !is_user_vaddr(check_byteptr + 3) || get_user(check_byteptr + 3) == -1){
+		exit_special();
 	}
 }
 
 
 void check_buffer_write(uint8_t const* buffer, unsigned size){
+	//printf("BUFFER = %p, SIZE = %d\n", buffer, size);
 	if(!is_user_vaddr(buffer) || !is_user_vaddr(buffer + size - 1)
 		|| get_user(buffer) == -1 || get_user(buffer + size - 1) == -1){
 		exit_special();
@@ -99,6 +105,7 @@ void syscall_halt(void){
 }
 // Exit
 void syscall_exit(int status){
+	//puts("================EXIT====================");
 	struct thread* current_thread = thread_current();
 	current_thread->exit_code = status;
 	thread_exit();
@@ -168,7 +175,7 @@ int syscall_filesize(int fd){
 int syscall_read(int fd, uint8_t* buffer, unsigned length){
 	//puts("SYSCALL READ");
 	check_buffer_read(buffer, length);
-	//puts("CHECK DONE");
+	
 	if (fd == 0){
 		// Read from Console
 		for (int i = 0; i < length; i++){
@@ -216,9 +223,9 @@ void syscall_seek(int fd, unsigned int position){
 	struct list_elem* e;
 	struct thread_file* thread_file = get_file(thread_current(), fd);
 	if(thread_file){
-		acquire_file_lock();
+		//acquire_file_lock();
 		file_seek(thread_file->file, position);
-		release_file_lock();
+		//release_file_lock();
 	}
 	else{
 		exit_special();
@@ -386,18 +393,18 @@ void syscall_init(void){
 
 static void syscall_handler(struct intr_frame* f){
 	int* user_pointer = f->esp;
-	check_pt(user_pointer + 1);
 
+	check_pt(user_pointer);
 	int sys_code = *(int*)user_pointer;
 	if (sys_code < SYSCALL_NUM_MIN || sys_code >= SYSCALL_NUM_MAX){
+		puts("EXIT FOR BAD SYSCALL ID!");
 		exit_special();
 	}
-
 	void* func = syscall_func[sys_code];
 	if (func == NULL){
+		puts("NO VALID SYSCALL FUNCTION!");
 		exit_special();
 	}
-
 	int argc = syscall_argc[sys_code];
 	ASSERT((argc >= 0) && (argc <= 3));
 	int argv[3];
@@ -406,11 +413,7 @@ static void syscall_handler(struct intr_frame* f){
 		check_pt(arg);
 		argv[i] = *arg;
 	}
-	//printf("SYSCALL HANDLER: ESP = %p\n", f->esp);
-	//printf("SYSCALL! CODE: %d\n", sys_code);
-	//printf("");
-	//printf("=============================%d\n", sys_code);
-	int ret_val = 0;
+	int ret_val = -1;
 	switch (argc) {
 		case 0:
 			ret_val = ((int (*)())func)();
@@ -428,6 +431,6 @@ static void syscall_handler(struct intr_frame* f){
 			exit_special();
 			break;
 	}
-
+	//printf("SYSCALL RETURN VALUE: %d\n", ret_val);
 	f->eax = ret_val;
 }

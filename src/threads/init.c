@@ -145,6 +145,7 @@ int main(void)
 
 	/* Finish up. */
 	shutdown();
+	
 	thread_exit();
 }
 
@@ -320,16 +321,15 @@ run_actions(char **argv)
 	static const struct action actions[] =
 		{
 			{"run", 2, run_task},
-#ifdef FILESYS
+			#ifdef FILESYS
 			{"ls", 1, fsutil_ls},
 			{"cat", 2, fsutil_cat},
 			{"rm", 2, fsutil_rm},
 			{"extract", 1, fsutil_extract},
 			{"append", 2, fsutil_append},
-#endif
+			#endif
 			{NULL, 0, NULL},
 		};
-
 	while (*argv != NULL)
 	{
 		const struct action *a;
