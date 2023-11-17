@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "*.py": "python",
+        "*.cu": "cpp",
+        "process.h": "c",
+        "vaddr.h": "c",
+        "stdio.h": "c",
+        "shutdown.h": "c",
+        "string": "c"
+    }
+}

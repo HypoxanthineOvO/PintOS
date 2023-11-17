@@ -4,26 +4,32 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include "FixedPoint.h"
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
 {
-	THREAD_RUNNING, /* Running thread. */
-	THREAD_READY,	/* Not running but ready to run. */
-	THREAD_BLOCKED, /* Waiting for an event to trigger. */
-	THREAD_DYING	/* About to be destroyed. */
+	THREAD_RUNNING,     /* Running thread. */
+	THREAD_READY,       /* Not running but ready to run. */
+	THREAD_BLOCKED,     /* Waiting for an event to trigger. */
+	THREAD_DYING        /* About to be destroyed. */
 };
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
-#define TID_ERROR ((tid_t)-1) /* Error value for tid_t. */
+#define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
 /* Thread priorities. */
-#define PRI_MIN 0	   /* Lowest priority. */
-#define PRI_DEFAULT 31 /* Default priority. */
-#define PRI_MAX 63	   /* Highest priority. */
+#define PRI_MIN 0                       /* Lowest priority. */
+#define PRI_DEFAULT 31                  /* Default priority. */
+#define PRI_MAX 63                      /* Highest priority. */
+
+/* Initialize Macro for Project 2 */
+// Thread Macro for Project 2
+#define THREAD_TICKS_TO_UNBLOCK_NO_TICKS (-1)
+// User Program Macro for Project 2
+#define USERPROG 
 
 /* A kernel thread or user process.
 
@@ -81,38 +87,57 @@ typedef int tid_t;
 	  only because they are mutually exclusive: only a thread in the
 	  ready state is on the run queue, whereas only a thread in the
 	  blocked state is on a semaphore wait list. */
-struct thread
-{
+
+struct thread_link {
+	/* A Tracer of parent and child thread. */
+	int tid; // tid of child
+	struct list_elem elem; // child list elem
+	struct semaphore sema; // semaphore to syn exit state
+	int exit_code; // Exit Status of Thread
+};
+
+struct thread_file {
+	int file_descriptor; // num of file descriptor
+	struct file* file; // file in the thread
+	struct list_elem file_elem; // file list elem
+};
+
+
+struct thread {
 	/* Owned by thread.c. */
-	tid_t tid;				   /* Thread identifier. */
-	enum thread_status status; /* Thread state. */
-	char name[16];			   /* Name (for debugging purposes). */
-	uint8_t* stack;			   /* Saved stack pointer. */
-	struct list_elem allelem;  /* List element for all threads list. */
+	tid_t tid;                          /* Thread identifier. */
+	enum thread_status status;          /* Thread state. */
+	char name[16];                      /* Name (for debugging purposes). */
+	uint8_t* stack;                     /* Saved stack pointer. */
+	int priority;                       /* Priority. */
+	struct list_elem allelem;           /* List element for all threads list. */
 
 	/* Shared between thread.c and synch.c. */
-	struct list_elem elem; /* List element. */
-
-	/* Add for Project 1.1 */
-	bool in_sleep;		 // The thread is sleeping!
-	int64_t sleep_until; // If the thread is sleeping, this variable mark the wake-up time
-	/* Add for Project 1.2 */
-	int priority_base; // The base priority before donation, it's the "True Priority"
-	int priority_used;// The priority that the thread used in comparison, it's the "Effective Priority"
-	struct list donaters; // The list of donaters
-	struct thread* donatee; // The thread that the current thread donate to
-	struct list_elem donatee_elem; // The list element of the donatee
-	/* Add for Project 1.3 */
-	int nice; // The nice value of thread, -20 <= nice <= 20
-	FixedPoint32 recent_cpu; // A Fixed Point Value record the recent CPU time.
+	struct list_elem elem;              /* List element. */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
-	uint32_t* pagedir; /* Page directory. */
+	uint32_t* pagedir;                  /* Page directory. */
+	/* Structure for Project 2 */
+	// Tree structure of thread
+	struct list children_list; // List of children
+	struct thread* parent; // pointer to parent
+	struct thread_link* child; // pointer to child
+
+	// Status Flags
+	int exit_code; // Exit Status of Thread
+	bool success; // Whether execute successfully
+	// Locks
+	struct semaphore sema; // Lock for thread
+
+	// Files
+	int self_fd; // file descriptor
+	struct list file_list; // List of files
+	struct file* file_opened; // File opened by thread
 #endif
 
 	/* Owned by thread.c. */
-	unsigned magic; /* Detects stack overflow. */
+	unsigned magic;                     /* Detects stack overflow. */
 };
 
 /* If false (default), use round-robin scheduler.
@@ -142,7 +167,6 @@ void thread_yield(void);
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func(struct thread* t, void* aux);
 void thread_foreach(thread_action_func*, void*);
-void thread_foreach_list(thread_action_func*, struct list* list, void*);
 
 int thread_get_priority(void);
 void thread_set_priority(int);
@@ -151,16 +175,10 @@ int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
-/* Project 1.2 */
-bool compare_thread_priority(
-	const struct list_elem* a,
-	const struct list_elem* b
-);
 
-/* Project 1.3. BSD4.4 Scheduler */
-void update_load_avg(void);
-void update_recent_cpu(struct thread*, void*);
-void check_after_release(struct thread*);
-void update_priority_mlfqs(struct thread*);
+struct thread_link* thread_get_child(int);
+struct thread* get_thread(int);
 
+void acquire_file_lock(void);
+void release_file_lock(void);
 #endif /* threads/thread.h */
