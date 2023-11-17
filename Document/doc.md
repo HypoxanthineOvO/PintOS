@@ -56,12 +56,12 @@ struct thread{
 
 		// Status Flags
 		int exit_code; // Exit Status of Thread
-		bool success;
+		bool success; // Whether execute successfully
 		// Locks
 		struct semaphore sema; // Lock for thread
 
 		// Files
-		int self_fd;
+		int self_fd; // file descriptor
 		struct list file_list; // List of files
 		struct file* file_opened; // File opened by thread
 	#endif
@@ -71,30 +71,31 @@ struct thread{
 struct thread_link {
 	/* A Tracer of parent and child thread. */
 	int tid; // tid of child
-	struct list_elem elem;
+	struct list_elem elem; // child list elem
 	struct semaphore sema; // semaphore to syn exit state
-	int exit_code;
+	int exit_code; // Exit Status of Thread
 };
 
 struct thread_file {
-	int file_descriptor;
-	struct file* file;
-	struct list_elem file_elem;
+	int file_descriptor; // num of file descriptor
+	struct file* file; // file in the thread
+	struct list_elem file_elem; // file list elem
 };
 
 ```
 
 ### B2: Describe how file descriptors are associated with open files. Are file descriptors unique within the entire OS or just within a single process?
-- A file descriptor is a number.
+- A file descriptor is a non-negative number.
 - For each thread, we have a list of files and a pointer to the file opened by the thread.
 - We store the file descriptor of the file opened by `self_fd`. Notice that `self_fd` is **unique within a single process**.
 - In `syscall.c`, we implement a function `get_file`, which can get the file pointer by the file descriptor and `thread_current()->file_list`.
+- In pintos, file descriptor 0 and 1 is occupied by stdin and stdout, thus file descriptors defined by ourselves start from 2.
 
 ## Algorithms
 
 ### B3: Describe your code for reading and writing user data from the kernel.
 - Because interrupts does not change the page directory, we can access the user memory directly in the interrupt handler.
-- After checking the address is valid, we can read or write the memeory directly.
+- After checking the user address is valid, we can read or write the memeory directly.
 - The method we adopted to check the validity of the user memory address is described in **B6**.
 
 ### B4: Suppose a system call causes a full page (4,096 bytes) of data to be copied from user space into the kernel.  What is the least and the greatest possible number of inspections of the page table (e.g. calls to pagedir_get_page()) that might result?  What about for a system call that only copies 2 bytes of data?  Is there room for improvement in these numbers, and how much?
@@ -111,11 +112,11 @@ int syscall_wait(pid_t pid) {
 	return process_wait(pid);
 }
 ```
-In `process_wait`, we find the child thread by `pid` and call `sema_down(&child->sema)` to wait for the child thread to exit. Only when the child thread exit, it will call `sema_up`, we can get the exit code of the child thread. Then we return the exit code.
+In `process_wait`, we find the child thread by `pid` and call `sema_down(&child->sema)` to wait for the child thread to exit. Only when the child thread exit, it will call `sema_up`, we can get the exit code of the child thread. Then we return the exit code. If we can't find the child thread in the children_list of the thread, we return -1.
 
 
 ### B6: Any access to user program memory at a user-specified address can fail due to a bad pointer value.  Such accesses must cause the process to be terminated.  System calls are fraught with such accesses, e.g. a "write" system call requires reading the system call number from the user stack, then each of the call's three arguments, then an arbitrary amount of user memory, and any of these can fail at any point. This poses a design and error-handling problem: how do you best avoid obscuring the primary function of code in a morass of error-handling?  Furthermore, when an error is detected, how do you ensure that all temporarily allocated resources (locks, buffers, etc.) are freed?  In a few paragraphs, describe the strategy or strategies you adopted for managing these issues.  Give an example.
-- We implement a series function to check the validity of the user memory address.
+- We implement a series function to check the validity of the user memory address according to the various input types of the functions.
 	```c++
 	void check_pt(int const* vaddr){
 		uint8_t* check_byteptr = (uint8_t*)vaddr;
@@ -162,7 +163,7 @@ In `process_wait`, we find the child thread by `pid` and call `sema_down(&child-
 - In our `syscall_exec()`, we call `process_execute()`.
 - In `process_execute()`, after we create a new thread, we call `sema_down(&thread_current()->sema)` to wait for the child thread to load the new executable. Noticed that the child process will run `start_process()` as the first function.
 - In `start_process()`, we call `sema_up(&thread_current()->parent->sema)` to wake up the parent thread.
-
+- And also in `start_process()`, we pass the load success/failure status with `thread_current()->parent->success = true/false` according to the load status of `thread_current()`.
 
 ### B8: Consider parent process P with child process C.  How do you ensure proper synchronization and avoid race conditions when P calls wait(C) before C exits?  After C exits?  How do you ensure that all resources are freed in each case?  How about when P terminates without waiting, before C exits?  After C exits?  Are there any special cases?
 
@@ -170,6 +171,8 @@ To ensure proper synchronization and avoid race conditions when the parent proce
 
 1. Introduce a `success` flag in the `struct thread` to record whether the thread executed successfully. Additionally, use the `parent` field in the `struct thread` to access and update the parent's status based on the loading result. This design allows the parent to record the child's execution result instead of the child itself.
 2. Use a semaphore to implement the "parent waits for child" mechanism. When a child process is created, it will perform a down operation on the semaphore to block the parent. Once the child process completes its execution, it will perform an up operation on the semaphore to wake up its parent.
+
+For the case of `P` calling `wait(C)` after `C` exits, since w can't find `C` in the child list of `P`, we return -1.
 
 To ensure that all resources are freed in each case, we can follow these steps:
 

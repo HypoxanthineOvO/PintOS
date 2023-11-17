@@ -309,6 +309,7 @@ thread_exit(void) {
 		acquire_file_lock();
 		file_close(thread_file->file);
 		release_file_lock();
+		
 		list_remove(e);
 		free(thread_file);
 	}

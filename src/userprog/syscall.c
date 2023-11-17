@@ -98,14 +98,18 @@ int syscall_wait(int pid){
 // Create
 bool syscall_create(const char* file, unsigned initial_size){
 	check_string(file);
+	acquire_file_lock();
 	bool ret_val = filesys_create(file, initial_size);
+	release_file_lock();
 	return ret_val;
 }
 
 // Remove
 bool syscall_remove(const char* file){
 	check_string(file);
+	acquire_file_lock();
 	bool ret_val = filesys_remove(file);
+	release_file_lock();
 	return ret_val;
 }
 
@@ -113,7 +117,9 @@ bool syscall_remove(const char* file){
 int syscall_open(const char* file){
 	check_string(file);
 	// Use filesys_open
+	acquire_file_lock();
 	struct file* file_ptr = filesys_open(file);
+	release_file_lock();
 	if (file_ptr == NULL){
 		return -1;
 	}
@@ -134,7 +140,10 @@ int syscall_filesize(int fd){
 	struct thread_file* thread_file = get_file(thread_current(), fd);
 	
 	if(thread_file){
-		return file_length(thread_file->file);
+		acquire_file_lock();
+		int file_len = file_length(thread_file->file);
+		release_file_lock();
+		return file_len;
 	}
 	else{
 		return -1;
@@ -158,7 +167,9 @@ int syscall_read(int fd, uint8_t* buffer, unsigned length){
 		struct list_elem* e;
 		struct thread_file* thread_file = get_file(thread_current(), fd);
 		if(thread_file){
+			acquire_file_lock();
 			ret_val = file_read(thread_file->file, buffer, length);
+			release_file_lock();
 			return ret_val;
 		}
 		else return -1;
@@ -179,7 +190,9 @@ int syscall_write(int fd, const void* buffer, unsigned length){
 		struct list_elem* e;
 		struct thread_file* thread_file = get_file(thread_current(), fd);
 		if(thread_file){
+			acquire_file_lock();
 			ret_val = file_write(thread_file->file, buffer, length);
+			release_file_lock();
 		}
 		return ret_val;
 	}
@@ -207,7 +220,9 @@ unsigned syscall_tell(int fd){
 	struct list_elem* e;
 	struct thread_file* thread_file = get_file(thread_current(), fd);
 	if(thread_file){
+		acquire_file_lock();
 		return file_tell(thread_file->file);
+		release_file_lock();
 	}	
 	else{
 		exit_special();
@@ -220,8 +235,11 @@ void syscall_close(int fd){
 	// Find file by id
 	struct list_elem* e;
 	struct thread_file* thread_file = get_file(thread_current(), fd);
-	if(thread_file){
+	if(thread_file){	
+		acquire_file_lock();
 		file_close(thread_file->file);
+		release_file_lock();
+
 		list_remove(&thread_file->file_elem);
 		free(thread_file);
 	}	

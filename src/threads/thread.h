@@ -91,15 +91,15 @@ typedef int tid_t;
 struct thread_link {
 	/* A Tracer of parent and child thread. */
 	int tid; // tid of child
-	struct list_elem elem;
+	struct list_elem elem; // child list elem
 	struct semaphore sema; // semaphore to syn exit state
-	int exit_code;
+	int exit_code; // Exit Status of Thread
 };
 
 struct thread_file {
-	int file_descriptor;
-	struct file* file;
-	struct list_elem file_elem;
+	int file_descriptor; // num of file descriptor
+	struct file* file; // file in the thread
+	struct list_elem file_elem; // file list elem
 };
 
 
@@ -126,12 +126,12 @@ struct thread {
 
 	// Status Flags
 	int exit_code; // Exit Status of Thread
-	bool success;
+	bool success; // Whether execute successfully
 	// Locks
 	struct semaphore sema; // Lock for thread
 
 	// Files
-	int self_fd;
+	int self_fd; // file descriptor
 	struct list file_list; // List of files
 	struct file* file_opened; // File opened by thread
 #endif
