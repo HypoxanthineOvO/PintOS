@@ -7,9 +7,6 @@
 #include "threads/thread.h"
 #include "string.h"
 
-void write_behind(void);
-void read_ahead(void);
-
 static Cache cache[CACHE_SIZE];
 struct lock cache_global_lock;
 
@@ -95,7 +92,6 @@ void cache_write(block_sector_t id, const void* data,int offset,int size)
 Cache* cache_new(block_sector_t id)
 {
     Cache *c = NULL;
-    //lock_acquire(&cache_global_lock);
     for(int i = 0; i<CACHE_SIZE; i++) {
         if (cache[i].sector_id == CACHE_UNUSED) {
             c = cache+i;
@@ -111,7 +107,6 @@ Cache* cache_new(block_sector_t id)
     c->second_chance = true;
     c->sector_id = id;
     c->dirty = false;
-    //lock_release(&cache_global_lock);
     return c;
 }
 

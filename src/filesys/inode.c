@@ -47,7 +47,7 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
 		indirect_sector_ID = sector_position % INDIRECT_BLOCK_NUM;
 	if (indirect_block_ID >= INDIRECT_BLOCK_NUM) {
 		// Out of range
-		return -1;
+		return INVALID_SECTOR;
 	}
 
 	// Read indirect block
@@ -76,9 +76,7 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
 static struct list open_inodes;
 
 /* Initializes the inode module. */
-void
-inode_init(void)
-{
+void inode_init(void) {
 	list_init(&open_inodes);
 }
 
@@ -87,9 +85,7 @@ inode_init(void)
    device.
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
-bool
-inode_create(block_sector_t sector, off_t length)
-{
+bool inode_create(block_sector_t sector, off_t length) {
 	struct inode_disk* disk_inode = NULL;
 	bool success = false;
 
@@ -267,7 +263,7 @@ inode_read_at(struct inode* inode, void* buffer_, off_t size, off_t offset)
 		offset += chunk_size;
 		bytes_read += chunk_size;
 	}
-	free(bounce);
+	//free(bounce);
 
 	lock_release(&inode->lock);
 	return bytes_read;
@@ -392,9 +388,12 @@ bool extend_inode(InodeDisk* inode, int n) {
 		return true;
 	}
 	// If there are still blocks to allocate, allocate indirect block
-	int indirect_cnt = n / INDIRECT_BLOCK_NUM;
+	int indirect_cnt;
 	if (n % INDIRECT_BLOCK_NUM != 0) {
 		indirect_cnt = n / INDIRECT_BLOCK_NUM + 1;
+	}
+	else {
+		indirect_cnt = n / INDIRECT_BLOCK_NUM;
 	}
 
 	// Double indirect block
@@ -444,4 +443,5 @@ bool extend_inode(InodeDisk* inode, int n) {
 	}
 	cache_write(inode->indirect, double_indirect, 0, BLOCK_SECTOR_SIZE);
 	free(double_indirect);
+	return true;
 }

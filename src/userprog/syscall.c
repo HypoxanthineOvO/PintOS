@@ -221,8 +221,9 @@ unsigned syscall_tell(int fd){
 	struct thread_file* thread_file = get_file(thread_current(), fd);
 	if(thread_file){
 		acquire_file_lock();
-		return file_tell(thread_file->file);
+		unsigned retval = file_tell(thread_file->file);
 		release_file_lock();
+		return retval;
 	}	
 	else{
 		exit_special();

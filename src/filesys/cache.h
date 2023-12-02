@@ -18,7 +18,6 @@ typedef struct cache
 } Cache;
 
 extern struct lock cache_global_lock;
-extern struct semaphore write_behind_stopped; // Used to wait for write-behind thread to stop.
 
 void cache_init(void);
 void cache_read(block_sector_t, void*, int,int);
