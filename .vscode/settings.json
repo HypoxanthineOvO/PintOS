@@ -6,6 +6,10 @@
         "vaddr.h": "c",
         "stdio.h": "c",
         "shutdown.h": "c",
-        "string": "c"
+        "string": "c",
+        "cache.h": "c",
+        "synch.h": "c",
+        "malloc.h": "c",
+        "free-map.h": "c"
     }
 }
