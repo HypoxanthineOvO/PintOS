@@ -10,6 +10,8 @@
         "cache.h": "c",
         "synch.h": "c",
         "malloc.h": "c",
-        "free-map.h": "c"
+        "free-map.h": "c",
+        "thread.h": "c",
+        "file.h": "c"
     }
 }

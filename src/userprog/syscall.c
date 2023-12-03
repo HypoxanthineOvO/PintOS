@@ -12,7 +12,7 @@
 static void syscall_handler(struct intr_frame*);
 
 #define SYSCALL_NUM_MIN 0
-#define SYSCALL_NUM_MAX 13
+#define SYSCALL_NUM_MAX 20
 
 int syscall_argc[SYSCALL_NUM_MAX];
 void* syscall_func[SYSCALL_NUM_MAX];
@@ -56,21 +56,21 @@ void check_string(char const* str){
 	}
 }
 
-struct thread_file* get_file(struct thread* thread, int fd){
+struct thread_node* get_file(struct thread* thread, int fd){
 	struct file_list* file_list = &thread->file_list;
-	struct thread_file* thread_file = NULL;
+	struct thread_node* thread_node = NULL;
 	struct list_elem* e;
 	for(
 		e = list_begin(file_list);
 		e != list_end(file_list);
 		e = list_next(e)
 	){
-		thread_file = list_entry(e, struct thread_file, file_elem);
-		if (thread_file->file_descriptor == fd){
+		thread_node = list_entry(e, struct thread_node, elem);
+		if (thread_node->file_descriptor == fd){
 			break;
 		}
 	}
-	return thread_file;
+	return thread_node;
 }
 
 /* Systemcall Function Implementation */
@@ -117,19 +117,30 @@ bool syscall_remove(const char* file){
 int syscall_open(const char* file){
 	check_string(file);
 	// Use filesys_open
-	acquire_file_lock();
-	struct file* file_ptr = filesys_open(file);
-	release_file_lock();
-	if (file_ptr == NULL){
+	struct file* file_ptr = NULL;
+	struct dir* dir_ptr = NULL;
+	if(filesys_open_f_or_d(file, &file_ptr, &dir_ptr)){
+		ASSERT (file_ptr != NULL || dir_ptr != NULL);
+		ASSERT (file_ptr == NULL || dir_ptr == NULL);
+		struct thread* current_thread = thread_current();
+			struct thread_node* thread_node = malloc(sizeof(struct thread_node));
+		if(file_ptr){
+			// Add file to file_list
+			thread_node->file = file_ptr;
+			thread_node->is_dir = false;
+		}
+		else{
+			// Add dir to file_list
+			thread_node->dir = dir_ptr;
+			thread_node->is_dir = true;
+		}
+		thread_node->file_descriptor = current_thread->self_fd++;
+		list_push_back(&current_thread->file_list, &thread_node->elem);
+		return thread_node->file_descriptor;
+	}
+	else{
 		return -1;
 	}
-	// Add file to file_list
-	struct thread* current_thread = thread_current();
-	struct thread_file* thread_file = malloc(sizeof(struct thread_file));
-	thread_file->file = file_ptr;
-	thread_file->file_descriptor = current_thread->self_fd++;
-	list_push_back(&current_thread->file_list, &thread_file->file_elem);
-	return thread_file->file_descriptor;
 }
 
 // Filesize
@@ -137,11 +148,11 @@ int syscall_filesize(int fd){
 	int ret_val = -1;
 	// Find file by id
 	struct list_elem* e;
-	struct thread_file* thread_file = get_file(thread_current(), fd);
+	struct thread_node* thread_node = get_file(thread_current(), fd);
 	
-	if(thread_file){
+	if(thread_node){
 		acquire_file_lock();
-		int file_len = file_length(thread_file->file);
+		int file_len = file_length(thread_node->file);
 		release_file_lock();
 		return file_len;
 	}
@@ -165,10 +176,12 @@ int syscall_read(int fd, uint8_t* buffer, unsigned length){
 		int ret_val = -1;
 		// Find file by id
 		struct list_elem* e;
-		struct thread_file* thread_file = get_file(thread_current(), fd);
-		if(thread_file){
+		struct thread_node* thread_node = get_file(thread_current(), fd);
+		
+		if(thread_node){
+			if(thread_node->is_dir) return -1;
 			acquire_file_lock();
-			ret_val = file_read(thread_file->file, buffer, length);
+			ret_val = file_read(thread_node->file, buffer, length);
 			release_file_lock();
 			return ret_val;
 		}
@@ -188,10 +201,11 @@ int syscall_write(int fd, const void* buffer, unsigned length){
 		int ret_val = -1;
 		// Find file by id
 		struct list_elem* e;
-		struct thread_file* thread_file = get_file(thread_current(), fd);
-		if(thread_file){
+		struct thread_node* thread_node = get_file(thread_current(), fd);
+		if(thread_node){
+			if(thread_node->is_dir) return -1;
 			acquire_file_lock();
-			ret_val = file_write(thread_file->file, buffer, length);
+			ret_val = file_write(thread_node->file, buffer, length);
 			release_file_lock();
 		}
 		return ret_val;
@@ -203,10 +217,10 @@ int syscall_write(int fd, const void* buffer, unsigned length){
 void syscall_seek(int fd, unsigned int position){
 	// Find file by id
 	struct list_elem* e;
-	struct thread_file* thread_file = get_file(thread_current(), fd);
-	if(thread_file){
+	struct thread_node* thread_node = get_file(thread_current(), fd);
+	if(thread_node){
 		acquire_file_lock();
-		file_seek(thread_file->file, position);
+		file_seek(thread_node->file, position);
 		release_file_lock();
 	}
 	else{
@@ -218,10 +232,10 @@ void syscall_seek(int fd, unsigned int position){
 unsigned syscall_tell(int fd){
 	// Find file by id
 	struct list_elem* e;
-	struct thread_file* thread_file = get_file(thread_current(), fd);
-	if(thread_file){
+	struct thread_node* thread_node = get_file(thread_current(), fd);
+	if(thread_node){
 		acquire_file_lock();
-		unsigned retval = file_tell(thread_file->file);
+		unsigned retval = file_tell(thread_node->file);
 		release_file_lock();
 		return retval;
 	}	
@@ -235,19 +249,69 @@ unsigned syscall_tell(int fd){
 void syscall_close(int fd){
 	// Find file by id
 	struct list_elem* e;
-	struct thread_file* thread_file = get_file(thread_current(), fd);
-	if(thread_file){	
+	struct thread_node* thread_node = get_file(thread_current(), fd);
+	if(thread_node){	
 		acquire_file_lock();
-		file_close(thread_file->file);
+		if(thread_node->is_dir) dir_close(thread_node->dir);
+		else file_close(thread_node->file);
 		release_file_lock();
 
-		list_remove(&thread_file->file_elem);
-		free(thread_file);
+		list_remove(&thread_node->elem);
+		free(thread_node);
 	}	
 	else{
 		exit_special();
 	}
 }
+
+/* Project 4 */
+// Chdir
+bool syscall_chdir(const char* dir) {
+	check_string(dir);
+	return filesys_chdir(dir);
+}
+
+// Mkdir
+bool syscall_mkdir(const char* dir) {
+	check_string(dir);
+	return filesys_mkdir(dir);
+}
+
+// Readdir
+bool syscall_readdir(int fd, char* name) {
+	check_string(name);
+	struct thread_node* thread_node = get_file(thread_current(), fd);
+	if(thread_node) {
+		if(!thread_node->is_dir) exit_special();
+		bool suc = dir_readdir(thread_node->dir, name);
+		return suc;
+	}
+	else{
+		exit_special();
+	}
+}
+
+// Isdir
+bool syscall_isdir(int fd) {
+	struct thread_node* thread_node = get_file(thread_current(), fd);
+	if(thread_node) return thread_node->is_dir;
+	else exit_special();
+}
+
+// Inumber
+int syscall_inumber(int fd) {
+	struct thread_node* thread_node = get_file(thread_current(), fd);
+	if(thread_node) {
+		int inumber;
+		if(thread_node->is_dir) inumber = inode_get_inumber(dir_get_inode(thread_node->dir));
+		else inumber = inode_get_inumber(file_get_inode(thread_node->file));
+		return inumber;
+	}
+	else {
+		return -1;
+	}
+}
+
 void syscall_init(void){
 	intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 
@@ -289,6 +353,24 @@ void syscall_init(void){
 
 	syscall_argc[SYS_CLOSE] = 1;
 	syscall_func[SYS_CLOSE] = (void*)syscall_close;
+
+
+
+	/* Project 4 */
+	syscall_argc[SYS_CHDIR] = 1;
+	syscall_func[SYS_CHDIR] = (void*)syscall_chdir;
+
+	syscall_argc[SYS_MKDIR] = 1;
+	syscall_func[SYS_MKDIR] = (void*)syscall_mkdir;
+
+	syscall_argc[SYS_READDIR] = 2;
+	syscall_func[SYS_READDIR] = (void*)syscall_readdir;
+
+	syscall_argc[SYS_ISDIR] = 1;
+	syscall_func[SYS_ISDIR] = (void*)syscall_isdir;
+
+	syscall_argc[SYS_INUMBER] = 1;
+	syscall_func[SYS_INUMBER] = (void*)syscall_inumber;
 }
 
 static void syscall_handler(struct intr_frame* f){

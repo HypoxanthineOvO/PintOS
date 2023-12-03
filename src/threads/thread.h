@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/synch.h"
+#include "filesys/directory.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -96,10 +97,12 @@ struct thread_link {
 	int exit_code; // Exit Status of Thread
 };
 
-struct thread_file {
+struct thread_node {
 	int file_descriptor; // num of file descriptor
+	bool is_dir;
 	struct file* file; // file in the thread
-	struct list_elem file_elem; // file list elem
+	struct dir* dir;
+	struct list_elem elem; // file list elem
 };
 
 
@@ -135,6 +138,8 @@ struct thread {
 	struct list file_list; // List of files
 	struct file* file_opened; // File opened by thread
 #endif
+	/* Structure for Project 4 */
+	struct dir* cwd;
 
 	/* Owned by thread.c. */
 	unsigned magic;                     /* Detects stack overflow. */

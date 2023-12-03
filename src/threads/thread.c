@@ -305,13 +305,13 @@ thread_exit(void) {
 
 	while(!list_empty(file_list)){
 		e = list_pop_front(file_list);
-		struct thread_file* thread_file = list_entry(e, struct thread_file, file_elem);
+		struct thread_node* thread_node = list_entry(e, struct thread_node, elem);
 		acquire_file_lock();
-		file_close(thread_file->file);
+		file_close(thread_node->file);
 		release_file_lock();
 		
 		list_remove(e);
-		free(thread_file);
+		free(thread_node);
 	}
 	/* Remove thread from all threads list, set our status to dying,
 	   and schedule another process.  That process will destroy us
