@@ -49,19 +49,6 @@ Frame* frame_alloc(Page* user_page){
 }
 
 void frame_free(Frame* frame){
-    // if (frame_addr == NULL) return;
-    // // For Each Hash Table
-    // struct hash_iterator it;
-    // hash_first(&it, &frame_table);
-    // while(hash_next(&it)){
-    //     Frame* frame = hash_entry(hash_cur(&it), Frame, elem);
-    //     if (frame->kpage == frame_addr){
-    //         hash_delete(&frame_table, hash_cur(&it));
-    //         palloc_free_page(frame_addr);
-    //         free(frame);
-    //         break;
-    //     }
-    // }
     hash_delete (&frame_table, &frame->elem);
     pagedir_clear_page (frame->owner->pagedir, frame->corres_page->user_virtual_addr);
     palloc_free_page (frame->kpage);

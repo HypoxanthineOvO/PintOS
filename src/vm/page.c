@@ -100,8 +100,6 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
     if (addr == 0 || !is_user_vaddr(addr)) {
         return false;
     }
-    //puts("=====PAGE FAULT HANDLER=====");
-    //printf("ADDR, ESP: %p, %p\n", addr, esp);
     lock_acquire(&frame_lock);
     // Try Get Page
     Page* page = page_find(page_table, addr);
@@ -118,11 +116,7 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
         }
 
         // Check From File or From Swap
-        if (page->swap_index != BITMAP_ERROR){
-            page->frame = frame_alloc(page);
-            swap_in(page);
-        }
-        else if (page->file){
+        if (page->file){
             // Load From File
             page->frame = frame_alloc(page);
             ASSERT (page->frame);
@@ -137,6 +131,10 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
             memset(
                 page->frame->kpage + page->file_size, 0, PGSIZE - page->file_size
             );
+        }
+        else if (page->swap_index != BITMAP_ERROR){
+            page->frame = frame_alloc(page);
+            swap_in(page);
         }
         else{
             ASSERT (page->frame == NULL);
@@ -156,13 +154,10 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
     }
     // Install Page
     if (!install_page(page->user_virtual_addr, page->frame->kpage, page->writable)){
-    //if (!pagedir_set_page(thread_current()->pagedir, page->user_virtual_addr, page->frame->kpage, page->writable)){
         page_free(page_table, page);
-        puts("===FAILED TO INSTALL PAGE===");
         lock_release(&frame_lock);
         return false;
     }
-    //puts("===SUCESSFULLY HANDLE PAGE FAULT===");
     lock_release(&frame_lock);
     return true;
 }
