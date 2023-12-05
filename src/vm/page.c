@@ -29,6 +29,16 @@ static bool page_less (const struct hash_elem *a, const struct hash_elem *b,
     const Page *y = hash_entry (b, Page, elem);
     return x->user_virtual_addr < y->user_virtual_addr;
 }
+
+void page_source_free(Page* page) {
+    if (page->file) {
+        page_write_back(page);
+    }
+    else {
+        if(page->swap_index != BITMAP_ERROR) swap_free(page->swap_index);
+        frame_free(page->frame);
+    }
+}
 // Util Function for page_fault_handler
 bool valid_page_access(Page* page, void* addr, void* esp, bool is_write) {
     if(addr == 0 || !is_user_vaddr(addr)) return false;
@@ -69,17 +79,17 @@ void page_table_init(Hash* table){
     hash_init(table, page_hash, page_less, NULL);
 }
 
+void page_destroy(struct hash_elem* e, void* aux UNUSED) {
+    Page* page = hash_entry(e, Page, elem);
+    page_source_free(page);
+    free(page);
+}
+
 void page_table_destroy(Hash* table){
+    // The lock is must for page parrallel.
     lock_acquire(&frame_lock);
-    while(table->elem_cnt){
-        struct hash_iterator it;
-        hash_first(&it, table);
-        hash_next(&it);
-        Page* page = hash_entry(hash_cur(&it), Page, elem);
-        page_free(table, page);
-    }
+    hash_destroy(table, page_destroy);
     lock_release(&frame_lock);
-    hash_destroy(table, NULL);
 }
 
 Page* page_find(Hash* table, void* addr){
@@ -104,26 +114,7 @@ void page_write_back(Page* page) {
 }
 
 void page_free(Hash* table, Page* page){
-    // Free page's source
-    if (page->file) {
-        page_write_back(page);
-    }
-    else {
-        // File == NULL
-        // mmap page
-        if (page->frame){
-            ASSERT(page->swap_index == BITMAP_ERROR);
-            // Do Frame Free
-            frame_free(page->frame);
-            page->frame = NULL;
-        }
-        else{
-            // Swap Free
-            if (page->swap_index != BITMAP_ERROR){
-                swap_free(page->swap_index);
-            }
-        }
-    }
+    page_source_free(page);
     // Remove from hash table
     hash_delete(table, &page->elem);
     free(page);
@@ -167,17 +158,13 @@ Page* page_create_on_stack(Hash* table, void* addr){
         free(page);
         return NULL;
     }
+    memset(page->frame->kpage, 0, PGSIZE);
     page->file = NULL;
     page->writable = true;
     page->in_stack = true;
     page->swap_index = BITMAP_ERROR;
 
-    memset(page->frame->kpage, 0, PGSIZE);
-    if (hash_insert(table, &page->elem)){
-        free(page);
-        ASSERT(false);
-        return NULL;
-    }
+    ASSERT(!hash_insert(table, &page->elem));
     return page;
 }
 

@@ -49,6 +49,7 @@ Frame* frame_alloc(Page* user_page){
 }
 
 void frame_free(Frame* frame){
+    if(frame == NULL) return;
     hash_delete (&frame_table, &frame->elem);
     pagedir_clear_page (frame->owner->pagedir, frame->corres_page->user_virtual_addr);
     palloc_free_page (frame->kpage);
