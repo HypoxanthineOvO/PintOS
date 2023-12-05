@@ -2,6 +2,7 @@
 #define VM_PAGE_H
 
 #include <hash.h>
+#include <stdbool.h>
 #include "filesys/file.h"
 
 #define STACK_LIMIT 8388608
@@ -32,7 +33,8 @@ typedef struct sup_page_entry{
 void page_table_init(Hash*);
 void page_table_destroy(Hash*);
 Page* page_find(Hash* , void* );
-void page_free(Hash* , Page*);
+void page_write_back(Page*);
+void page_free(Hash* , Page*); 
 bool page_fault_handler(Hash* , void* , void* , bool);
 Page* page_create_on_stack(Hash*, void*);
 Page* page_create_out_stack(Hash*, void*, bool, struct file*, int32_t, uint32_t);

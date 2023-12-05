@@ -47,16 +47,7 @@ void swap_out(Page* page) {
 		// The page is in the file system, write it back to the file system
 		ASSERT(page->swap_index == BITMAP_ERROR);
 		ASSERT(page->frame && page->frame->kpage);
-		// Do Write Back
-		uint32_t* pagedir = page->frame->owner->pagedir;
-		void* virtual_addr = page->user_virtual_addr;
-		if (pagedir_is_dirty(pagedir, virtual_addr)) {
-			// The page is dirty, write it back to the file system
-			pagedir_set_dirty(pagedir, virtual_addr, false);
-			file_write_at(page->file, page->frame->kpage, page->file_size, page->file_offset);
-		}
-		// Free the frame
-		page->frame = NULL;
+		page_write_back(page);
 		return;
 	}
 	else {
