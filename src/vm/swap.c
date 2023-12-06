@@ -29,15 +29,15 @@ void swap_init(void) {
 // Read the page from the swap slot
 void swap_in(Page* page) {
 	lock_acquire(&swap_lock);
-	bool valid = bitmap_test(swap_table, page->swap_index);
+	bool valid = bitmap_test(swap_table, page->swap_idx);
 	if(!valid) {
 		PANIC("Invalid swap index");
 	}
 	for (int i = 0; i < PAGE_BLOCKS; i++) {
-		block_read(swap_device, page->swap_index * PAGE_BLOCKS + i, page->frame->kpage + i * BLOCK_SECTOR_SIZE);
+		block_read(swap_device, page->swap_idx * PAGE_BLOCKS + i, page->frame->kpage + i * BLOCK_SECTOR_SIZE);
 	}
-	bitmap_reset(swap_table, page->swap_index);
-	page->swap_index = BITMAP_ERROR; // Mark the page as not in the swap slot
+	bitmap_reset(swap_table, page->swap_idx);
+	page->swap_idx = BITMAP_ERROR; // Mark the page as not in the swap slot
 	lock_release(&swap_lock);
 }
 
@@ -45,7 +45,7 @@ void swap_in(Page* page) {
 void swap_out(Page* page) {
 	if (page->file) {
 		// The page is in the file system, write it back to the file system
-		ASSERT(page->swap_index == BITMAP_ERROR);
+		ASSERT(page->swap_idx == BITMAP_ERROR);
 		ASSERT(page->frame && page->frame->kpage);
 		page_write_back(page);
 		return;
@@ -56,9 +56,9 @@ void swap_out(Page* page) {
 		if (sector == BITMAP_ERROR) {
 			PANIC("Swap is full");
 		}
-		page->swap_index = sector;
+		page->swap_idx = sector;
 		for (int i = 0; i < PAGE_BLOCKS; i++) {
-			block_write(swap_device, page->swap_index * PAGE_BLOCKS + i, page->frame->kpage + i * BLOCK_SECTOR_SIZE);
+			block_write(swap_device, page->swap_idx * PAGE_BLOCKS + i, page->frame->kpage + i * BLOCK_SECTOR_SIZE);
 		}
 		page->frame = NULL;
 		lock_release(&swap_lock);

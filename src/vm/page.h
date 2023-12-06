@@ -27,7 +27,7 @@ typedef struct sup_page_entry{
     struct hash_elem elem;
 
     // For Swap
-    size_t swap_index;
+    size_t swap_idx;
 } Page;
 
 void page_table_init(Hash*);

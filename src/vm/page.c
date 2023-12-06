@@ -35,7 +35,7 @@ void page_source_free(Page* page) {
         page_write_back(page);
     }
     else {
-        if(page->swap_index != BITMAP_ERROR) swap_free(page->swap_index);
+        if(page->swap_idx != BITMAP_ERROR) swap_free(page->swap_idx);
         frame_free(page->frame);
     }
 }
@@ -66,7 +66,7 @@ void load_from_file(Page* page) {
 
 void load_from_swap(Page* page) {
     page->frame = frame_alloc(page);
-    if (page->swap_index != BITMAP_ERROR){
+    if (page->swap_idx != BITMAP_ERROR){
         swap_in(page);
     }
     else{
@@ -162,7 +162,7 @@ Page* page_create_on_stack(Hash* table, void* addr){
     page->file = NULL;
     page->writable = true;
     page->in_stack = true;
-    page->swap_index = BITMAP_ERROR;
+    page->swap_idx = BITMAP_ERROR;
 
     ASSERT(!hash_insert(table, &page->elem));
     return page;
@@ -184,7 +184,7 @@ Page* page_create_out_stack(
     
     page->writable = writable;
     page->in_stack = false;
-    page->swap_index = BITMAP_ERROR;
+    page->swap_idx = BITMAP_ERROR;
     if (hash_insert(page_table, &page->elem)){
         free(page);
         ASSERT(false);
