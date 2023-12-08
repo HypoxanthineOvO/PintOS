@@ -10,11 +10,11 @@ extern struct lock frame_lock;
 typedef struct frame_table_entry{
     void* kpage; // Address of Frame
     Page* corres_page; // corresponding user page
-    struct thread* owner;
+    struct thread* owner; // The thread owns the frame
 
     struct hash_elem elem; // For frame table
 
-    int flag;
+    int flag; // Applying second chance algorithm
 } Frame;
 
 void* frame_table_init(void);

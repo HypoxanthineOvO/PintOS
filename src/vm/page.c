@@ -14,7 +14,7 @@
 // From userprog
 extern bool install_page (void *, void *, bool);
 // Utils
-bool addr_in_stack(void* addr, void* esp){
+bool addr_in_stack(void* addr, void* esp) {
     return (addr >= (PHYS_BASE - STACK_LIMIT)) && (addr >= esp - 32);
 }
 
@@ -66,16 +66,16 @@ void load_from_file(Page* page) {
 
 void load_from_swap(Page* page) {
     page->frame = frame_alloc(page);
-    if (page->swap_idx != BITMAP_ERROR){
+    if (page->swap_idx != BITMAP_ERROR) {
         swap_in(page);
     }
-    else{
+    else {
         memset(page->frame->kpage, 0, PGSIZE);
     }
 }
 // Implementation
 
-void page_table_init(Hash* table){
+void page_table_init(Hash* table) {
     hash_init(table, page_hash, page_less, NULL);
 }
 
@@ -85,15 +85,15 @@ void page_destroy(struct hash_elem* e, void* aux UNUSED) {
     free(page);
 }
 
-void page_table_destroy(Hash* table){
+void page_table_destroy(Hash* table) {
     // The lock is must for page parrallel.
     lock_acquire(&frame_lock);
     hash_destroy(table, page_destroy);
     lock_release(&frame_lock);
 }
 
-Page* page_find(Hash* table, void* addr){
-    if (table == NULL || addr == NULL){
+Page* page_find(Hash* table, void* addr) {
+    if (table == NULL || addr == NULL) {
         return NULL;
     }
     void* user_page = pg_round_down(addr);
@@ -105,7 +105,7 @@ Page* page_find(Hash* table, void* addr){
 }
 
 void page_write_back(Page* page) {
-    if (page->frame && pagedir_is_dirty(page->frame->owner->pagedir, page->user_virtual_addr)){
+    if (page->frame && pagedir_is_dirty(page->frame->owner->pagedir, page->user_virtual_addr)) {
         file_write_at(page->file, page->user_virtual_addr, page->file_size, page->file_offset);
         pagedir_set_dirty(page->frame->owner->pagedir, page->user_virtual_addr, false);
         frame_free(page->frame);
@@ -113,7 +113,7 @@ void page_write_back(Page* page) {
     }
 }
 
-void page_free(Hash* table, Page* page){
+void page_free(Hash* table, Page* page) {
     page_source_free(page);
     // Remove from hash table
     hash_delete(table, &page->elem);
@@ -121,11 +121,11 @@ void page_free(Hash* table, Page* page){
 }
 
 
-bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool read_write_state){
+bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool read_write_state) {
     lock_acquire(&frame_lock);
     // Try Get Page
     Page* page = page_find(page_table, addr);
-    if(!valid_page_access(page, addr, esp, read_write_state)){
+    if(!valid_page_access(page, addr, esp, read_write_state)) {
         lock_release(&frame_lock);
         return false;
     }
@@ -137,7 +137,7 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
         page = page_create_on_stack(page_table, addr);
     }
     // Install Page
-    if (!install_page(page->user_virtual_addr, page->frame->kpage, page->writable)){
+    if (!install_page(page->user_virtual_addr, page->frame->kpage, page->writable)) {
         page_free(page_table, page);
         lock_release(&frame_lock);
         return false;
@@ -146,7 +146,7 @@ bool page_fault_handler(struct hash* page_table, void* addr, void* esp, bool rea
     return true;
 }
 
-Page* page_create_on_stack(Hash* table, void* addr){
+Page* page_create_on_stack(Hash* table, void* addr) {
     //puts("CREATE STACK!!!");
     Page* page = malloc(sizeof(Page));
     if (page == NULL) {
@@ -185,7 +185,7 @@ Page* page_create_out_stack(
     page->writable = writable;
     page->in_stack = false;
     page->swap_idx = BITMAP_ERROR;
-    if (hash_insert(page_table, &page->elem)){
+    if (hash_insert(page_table, &page->elem)) {
         free(page);
         ASSERT(false);
         return NULL;

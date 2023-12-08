@@ -147,10 +147,10 @@ struct thread {
 #endif
 
 #ifdef VM
-	struct hash page_table;
-	void* esp;
-	struct list mmap_list;
-	mapid_t self_mapid;
+	struct hash page_table; // Page table for thread
+	void* esp; // User stack pointer
+	struct list mmap_list; // Mmaped files
+	mapid_t self_mapid; // mapid
 #endif
 
 	/* Owned by thread.c. */

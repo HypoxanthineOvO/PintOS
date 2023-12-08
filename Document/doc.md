@@ -12,22 +12,17 @@ Copy here the declaration of each new or changed `struct` or `struct` member, gl
 /* page.h */
 typedef struct sup_page_entry{
     // Core elements
-    void* user_virtual_addr;
-    struct frame_table_entry* frame;
-    bool writable;
+    void* user_virtual_addr; // User virtual address
+    struct frame_table_entry* frame; // If frame == NULL, not in memory
+    bool writable; // Write enable or not
     // For LRU
-    uint64_t access_time;
-
-    // File
-    struct file* file;
-    int32_t file_offset;
-    uint32_t file_size;
+    uint64_t access_time; // Used for comparing to determine LRU
 
     // Type Flag
-    bool in_stack;
+    bool in_stack; // Whether the page is in stack or not
     
     // Table elem
-    struct hash_elem elem;
+    struct hash_elem elem; // Page table element
 
 } Page;
 
@@ -35,11 +30,11 @@ typedef struct sup_page_entry{
 typedef struct frame_table_entry{
     void* kpage; // Address of Frame
     Page* corres_page; // corresponding user page
-    struct thread* owner;
+    struct thread* owner; // The thread owns the frame
 
     struct hash_elem elem; // For frame table
 
-    int flag;
+    int flag; // Applying second chance algorithm
 } Frame;
 
 /* frame.c */
@@ -50,8 +45,8 @@ struct lock frame_lock;
 struct thread{
     ...
 #ifdef VM
-	struct hash page_table;
-	void* esp;
+	struct hash page_table; // Page table for thread
+	void* esp; // User stack pointer
 #endif
     ...
 }
@@ -96,7 +91,7 @@ Copy here the declaration of each new or changed `struct` or `struct` member, gl
 typedef struct sup_page_entry{
     ...
     // For Swap
-    size_t swap_idx;
+    size_t swap_idx; // The position in the swap disk
     ...
 } Page;
 ```

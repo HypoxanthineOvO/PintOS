@@ -9,25 +9,26 @@
 
 typedef struct sup_page_entry{
     // Core elements
-    void* user_virtual_addr;
-    struct frame_table_entry* frame;
-    bool writable;
+    void* user_virtual_addr; // User virtual address
+    struct frame_table_entry* frame; // If frame == NULL, not in memory
+    bool writable; // Write enable or not
     // For LRU
-    uint64_t access_time;
+    uint64_t access_time; // Used for comparing to determine LRU
 
-    // File
+    // File 
+    // Mapping size = file_offset ~ file_offset + file_size
     struct file* file;
     int32_t file_offset;
     uint32_t file_size;
 
     // Type Flag
-    bool in_stack;
+    bool in_stack; // Whether the page is in stack or not
     
     // Table elem
-    struct hash_elem elem;
+    struct hash_elem elem; // Page table element
 
     // For Swap
-    size_t swap_idx;
+    size_t swap_idx; // The position in the swap disk
 } Page;
 
 void page_table_init(Hash*);
