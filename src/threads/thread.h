@@ -105,11 +105,11 @@ struct thread_file {
 	struct list_elem file_elem;
 };
 
-struct thread_mmap{
-	mapid_t mapid;
-	struct file* file;
-	void* mapped_addr;
-	struct list_elem elem;
+struct thread_mmap {
+	mapid_t mapid; // mmap id
+	struct file* file; // File
+	void* mapped_addr; // mapped address
+	struct list_elem elem; // list element
 };
 
 

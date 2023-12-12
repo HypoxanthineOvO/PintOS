@@ -148,22 +148,53 @@ Explain how you handle access to paged-out pages that occur during system calls.
 ## Rationale
 ### B9
 A single lock for the whole VM system would make synchronization easy, but limit parallelism.  On the other hand, using many locks complicates synchronization and raises the possibility for deadlock but allows for high parallelism.  Explain where your design falls along this continuum and why you chose to design it this way.
-- PitOS is a single core system, so we don't need to worry about parallelism.
+- PintOS is a single core system, so we don't need to worry about parallelism.
 - Thus we choose to use single lock for the whole VM system to make synchronization easy.
 
 # Memory mapped files
 ## Data Structures
 ### C1
 Copy here the declaration of each new or changed `struct` or `struct` member, global or static variable, `typedef`, or enumeration.  Identify the purpose of each in 25 words or less.
+```cpp
+struct thread
+{
+    ...
+	struct list mmap_list; // Mmaped files
+	mapid_t self_mapid; // mapid
+    ...
+}
+
+struct thread_mmap
+{
+	mapid_t mapid; // mmap id
+	struct file* file; // File
+	void* mapped_addr; // mapped address
+	struct list_elem elem; // list element
+};
+
+struct sup_page_entry
+{
+    // File 
+    // Mapping size = file_offset ~ file_offset + file_size
+    struct file* file; // whether mmaped
+    int32_t file_offset; // begining of file
+    uint32_t file_size; // size of file
+}
+```
 
 ## Algorithms
 ### C2
 Describe how memory mapped files integrate into your virtual memory subsystem.  Explain how the page fault and eviction processes differ between swap pages and other pages.
+- We use the file to determine whether it is mmaped or not.If it is mmaped, use `fread` to load the file and `memset` the page_zero_bytes to 0.
+
+- For swap page, if we determine it as mmaped, we write it to the file it maps, rather than to the swap disk. And the `swap_idx` of page is always `BITMAP_ERROR` since it doesn't write in the swap disk.
 
 ### C3
 Explain how you determine whether a new file mapping overlaps any existing segment.
+- In `syscall_mmap`, we check it in a for loop by checking all through the file with `page_find`, if we find an existing page, we return -1.
 
 ## Rationale
 
 ### C4
 Mappings created with "mmap" have similar semantics to those of data demand-paged from executables, except that "mmap" mappings are written back to their original files, not to swap.  This implies that much of their implementation can be shared.  Explain why your implementation either does or does not share much of the code for the two situations.
+- Our code share much for these two situations. Because in `syscall_mmap`, we create multiple pages. But we don't consider the content of the file when doing the page creation. These pages are similar to stack grow with the same page fault handler. Thus we don't need to change ,uch our implementation.

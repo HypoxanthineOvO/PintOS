@@ -261,9 +261,16 @@ void syscall_close(int fd){
 	}
 }
 
+bool is_page_aligned(void* addr) {
+    return ((uintptr_t)addr % PGSIZE) == 0;
+}
+
 // MMAP
 mapid_t syscall_mmap(int fd, void* addr){
-	if (fd < 2 || addr == NULL || pg_ofs(addr) != 0){
+	if(addr == 0){
+		return -1;
+	}
+	if (fd < 2 || addr == NULL || !is_page_aligned(addr)){
 		return -1;
 	}
 	struct thread* cur = thread_current();
