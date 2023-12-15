@@ -31,6 +31,12 @@
 #else
 #include "tests/threads/tests.h"
 #endif
+
+#ifdef VM
+#include "vm/frame.h"
+#include "vm/swap.h"
+#endif
+
 #ifdef FILESYS
 #include "devices/block.h"
 #include "devices/ide.h"
@@ -119,13 +125,19 @@ int main(void)
 	serial_init_queue();
 	timer_calibrate();
 
+
+
 #ifdef FILESYS
 	/* Initialize file system. */
 	ide_init();
 	locate_block_devices();
 	filesys_init(format_filesys);
 #endif
-
+/* Project 3 */
+#ifdef VM
+	frame_table_init();
+	swap_init();
+#endif
 	printf("Boot complete.\n");
 
 	/* Run actions specified on kernel command line. */
@@ -133,6 +145,7 @@ int main(void)
 
 	/* Finish up. */
 	shutdown();
+	
 	thread_exit();
 }
 
@@ -308,16 +321,15 @@ run_actions(char **argv)
 	static const struct action actions[] =
 		{
 			{"run", 2, run_task},
-#ifdef FILESYS
+			#ifdef FILESYS
 			{"ls", 1, fsutil_ls},
 			{"cat", 2, fsutil_cat},
 			{"rm", 2, fsutil_rm},
 			{"extract", 1, fsutil_extract},
 			{"append", 2, fsutil_append},
-#endif
+			#endif
 			{NULL, 0, NULL},
 		};
-
 	while (*argv != NULL)
 	{
 		const struct action *a;
