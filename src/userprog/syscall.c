@@ -239,7 +239,7 @@ unsigned syscall_tell(int fd){
 	struct thread_file* thread_file = get_file(thread_current(), fd);
 	if(thread_file){
 		return file_tell(thread_file->file);
-	}	
+	}
 	else{
 		exit_special();
 	}
