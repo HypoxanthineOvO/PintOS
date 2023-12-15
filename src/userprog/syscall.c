@@ -302,8 +302,8 @@ mapid_t syscall_mmap(int fd, void* addr){
 		size_t page_read_bytes = file_size - offset < PGSIZE ? file_size - offset : PGSIZE;
 		Page* page = page_create_out_stack(page_table, addr+offset, 1,
 			thread_mmap->file, offset, page_read_bytes);
-		if(page == NULL){
-			for(size_t i = 0; i < offset; i += PGSIZE){
+		if(page == NULL) {
+			for(size_t i = 0; i < offset; i += PGSIZE) {
 				Page* del_page = page_find(page_table, addr + i);
 				page_free(page_table, page);
 			}
@@ -324,23 +324,21 @@ void syscall_munmap(mapid_t mapid){
 	struct list *mmap_list = &t->mmap_list;
 	struct list_elem *e;
 	struct thread_mmap *thread_mmap = NULL;
-	for (e = list_begin (mmap_list); e != list_end (mmap_list);
-		e = list_next (e))
-		if (list_entry (e, struct thread_mmap, elem)->mapid == mapid)
-		{
+	for (e = list_begin (mmap_list); e != list_end (mmap_list); e = list_next (e)) {
+		if (list_entry (e, struct thread_mmap, elem)->mapid == mapid) {
 			thread_mmap = list_entry (e, struct thread_mmap, elem);
 			break;
 		}
+	}
 	if (thread_mmap == NULL){
 		exit_special();
 	}
 	size_t file_size = file_length (thread_mmap->file);
-	for (size_t offset = 0; offset < file_size; offset += PGSIZE)
-		{
+	for (size_t offset = 0; offset < file_size; offset += PGSIZE) {
 		struct page *page = page_find (&t->page_table,
 										thread_mmap->mapped_addr + offset);
 		page_free(&t->page_table, page);
-		}
+	}
 	file_close (thread_mmap->file);
 	list_remove (&thread_mmap->elem);
 	free (thread_mmap);
