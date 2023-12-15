@@ -222,8 +222,7 @@ unsigned syscall_tell(int fd){
 	if(thread_file){
 		acquire_file_lock();
 		return file_tell(thread_file->file);
-		release_file_lock();
-	}	
+	}
 	else{
 		exit_special();
 	}
