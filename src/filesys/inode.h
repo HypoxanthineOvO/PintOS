@@ -19,7 +19,7 @@ typedef struct inode_disk
 	unsigned is_dir; // 1 if this inode is a directory, 0 if not
     unsigned magic;                     /* Magic number. */
 	block_sector_t direct[DIRECT_BLOCK_NUM]; // 124 direct blocks
-    block_sector_t indirect; // 1 indirect block
+    block_sector_t indirect; // 1 double-indirect block
 } InodeDisk;
 
 
