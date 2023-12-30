@@ -94,6 +94,10 @@ bool open_pd_and_get_basename(const char* name, struct dir** dir, char** basenam
 }
 
 bool filesys_open_f_or_d(const char* name, struct file **file, struct dir **dir) {
+	// empty file
+	if(name[0] == '\0'){
+		return NULL;
+	}
 	// Special Case: Input "/" means root directory.
 	if(name[0] == '/' && name[1] == '\0') {
 		*file = NULL;
@@ -150,6 +154,8 @@ void filesys_init(bool format) {
    to disk. */
 void filesys_done(void) {
 	write_back_all_cache();
+	sema_up(&write_behind_success);
+  	sema_down (&write_behind_success);
 	free_map_close();
 	filesystem_shutdown = true;
 }

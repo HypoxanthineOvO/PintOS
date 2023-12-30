@@ -113,22 +113,55 @@ Then, we traverse the path.
 # Buffer Cache
 ## Data Structures
 ### C1: Copy here the declaration of each new or changed "struct" or "struct" member, global or static variable, typedef, or enumeration.  Identify the purpose of each in 25 words or less.
+```C++
+// File system cache
+typedef struct cache
+{
+    block_sector_t sector_id; // The sector id
+    bool dirty; // Whether this cache has changed
+    bool second_chance; // Second chance algorithm
+    uint8_t data[BLOCK_SECTOR_SIZE]; // The data block of the cache
+    struct lock lock; // When read or write, lock
+} Cache;
 
+struct read_ahead_entry {
+    struct list_elem elem; // The list element of readahead
+    block_sector_t sector_id; // readahead sector id
+};
+
+extern struct lock cache_lock; // lock for cache
+extern struct semaphore write_behind_success; // semaphore for write behind
+
+extern struct list read_ahead_list; // The list for read ahead
+extern struct semaphore read_ahead_success; // Semaphore for read ahead
+
+static Cache cache[CACHE_SIZE]; // The array for cache block
+```
 ## Algorithms
 ### C2: Describe how your cache replacement algorithm chooses a cache block to evict.
 
-
-
+We consider the second chance algorithm to evict the cache block.When the cache is accessed, the flag for it will be changed and the cache will be evicted when visited twice.
 
 ### C3: Describe your implementation of write-behind.
 
+For some ticks, we write dirty cache to the disk with a write behind thread, which runs during the filesys is on. To synchronize, we use semaphore `write_behind_success` to implement it.
 
 ### C4: Describe your implementation of read-ahead.
+
+Similar to write behind, we also use a read ahead thread to read the data to cache. And also similar to write behind, we use semaphore `read_ahead_success`.Besides that, we pass the sector id with a list `read_ahead_list`, and then read the data to cache.
 
 ## Synchronization
 ### C5: When one process is actively reading or writing data in a buffer cache block, how are other processes prevented from evicting that block?
 
+We have a lock for each cache. When reading or writing, the lock will lock the cache block. It ensures that the cache won't be evicted when being locked.
+
 ### C6: During the eviction of a block from the cache, how are other processes prevented from attempting to access the block?
+
+Here we have a global lock `cache_lock`, the `cache_lock` will be locked when evicting. When doing cache operation, the thread will `lock_acquire(&cache_lock)`. After having done, `lock_release(&c->lock)`.Then other processes won't reach the block.
 
 ## Rationale
 ### C7: Describe a file workload likely to benefit from buffer caching, and workloads likely to benefit from read-ahead and write-behind.
+
+- Access the same block for many times: benefit from buffer caching;
+- Access the data sequentially: benefit from read-ahead;
+- The file keeps open and not frequently written: benefit from write-behind.
