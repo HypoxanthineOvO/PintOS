@@ -19,7 +19,7 @@ typedef struct inode_disk
 	unsigned is_dir; // 1 if this inode is a directory, 0 if not
     unsigned magic;                     /* Magic number. */
 	block_sector_t direct[DIRECT_BLOCK_NUM]; // 124 direct blocks
-    block_sector_t indirect; // 1 double-indirect block
+    block_sector_t double_indirect; // 1 double-indirect block
 } InodeDisk;
 
 
@@ -58,5 +58,5 @@ off_t inode_length (const Inode *);
 bool inode_is_dir(const Inode*);
 void inode_set_dir(Inode*, bool);
 bool alloc_inode_block(block_sector_t*);
-bool extend_inode(InodeDisk* , off_t);
+bool inode_update(InodeDisk* , off_t);
 #endif /* filesys/inode.h */
