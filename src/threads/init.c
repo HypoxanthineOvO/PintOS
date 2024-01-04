@@ -118,7 +118,7 @@ int main(void)
 	thread_start();
 	serial_init_queue();
 	timer_calibrate();
-
+	
 #ifdef FILESYS
 	/* Initialize file system. */
 	ide_init();

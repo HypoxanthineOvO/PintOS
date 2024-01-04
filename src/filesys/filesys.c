@@ -83,7 +83,10 @@ bool open_pd_and_get_basename(const char* name, struct dir** dir, char** basenam
 		free(*basename);
 		return false;
 	}
+	filesys_lock_acquire();
+	
 	struct dir* parent_dir = try_dir_open(parent_dir_path);
+	filesys_lock_release ();
 	free(parent_dir_path);
 	if(parent_dir == NULL) {
 		free(*basename);
@@ -112,10 +115,12 @@ bool filesys_open_f_or_d(const char* name, struct file **file, struct dir **dir)
 	if(!open_pd_and_get_basename(name, &parent_dir, &basename)) {
 		return false;
 	}
+	filesys_lock_acquire();
 	Inode* inode = NULL;
 	dir_lookup(parent_dir, basename, &inode);
 	dir_close(parent_dir);
 	if(inode == NULL) {	
+		filesys_lock_release ();
 		return false;
 	}
 	if(inode_is_dir(inode)) {
@@ -127,12 +132,14 @@ bool filesys_open_f_or_d(const char* name, struct file **file, struct dir **dir)
 		*dir = NULL;
 	}
 	//free(basename);
+	filesys_lock_release ();
 	return true;
 }
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
 void filesys_init(bool format) {
+	filesys_lock_init();
 	fs_device = block_get_role(BLOCK_FILESYS);
 	if (fs_device == NULL)
 		PANIC("No file system device found, can't initialize file system.");
@@ -153,11 +160,13 @@ void filesys_init(bool format) {
 /* Shuts down the file system module, writing any unwritten data
    to disk. */
 void filesys_done(void) {
+	filesys_lock_acquire();
 	write_back_all_cache();
 	sema_up(&write_behind_success);
   	sema_down (&write_behind_success);
 	free_map_close();
 	filesystem_shutdown = true;
+	filesys_lock_release ();
 }
 
 /* Creates a file named NAME with the given INITIAL_SIZE.
@@ -174,6 +183,7 @@ filesys_create(const char* name, off_t initial_size)
 		return false;
 	}
 	// Create Directory
+	filesys_lock_acquire();
 	block_sector_t inode_sector = 0;
 	bool success = (parent_dir != NULL
 		&& free_map_allocate(1, &inode_sector)
@@ -182,7 +192,7 @@ filesys_create(const char* name, off_t initial_size)
 	if (!success && inode_sector != 0)
 		free_map_release(inode_sector, 1);
 	dir_close(parent_dir);
-
+	filesys_lock_release ();
 	return success;
 }
 
@@ -197,10 +207,14 @@ struct file* filesys_open(const char* name) {
 	if(!open_pd_and_get_basename(name, &parent_dir, &basename)) {
 		return NULL;
 	}
+	//("filesys_open");
+	filesys_lock_acquire();
 	Inode* inode = NULL;
 	dir_lookup(parent_dir, basename, &inode);
 	dir_close(parent_dir);
-	return file_open(inode);
+	struct file* file = file_open(inode);
+	filesys_lock_release ();
+	return file;
 }
 
 /* Deletes the file named NAME.
@@ -217,7 +231,7 @@ bool filesys_remove(const char* name) {
 	char* basename;
 	if (!open_pd_and_get_basename(name, &parent_dir, &basename))
 		return false;
-		
+	filesys_lock_acquire();
 	Inode* inode;
 	dir_lookup(parent_dir, basename, &inode);
 
@@ -225,6 +239,7 @@ bool filesys_remove(const char* name) {
 
 	if (!inode) {
 		dir_close(parent_dir);
+		filesys_lock_release ();
 		return false;
 	}
 	if (inode_is_dir(inode)) {
@@ -240,6 +255,7 @@ bool filesys_remove(const char* name) {
 	}
 
 	dir_close(parent_dir);
+	filesys_lock_release ();
 	return success;
 }
 
@@ -249,12 +265,13 @@ bool filesys_mkdir(const char* name) {
 	if(!open_pd_and_get_basename(name, &parent_dir, &basename)) {
 		return false;
 	}
-
+	filesys_lock_acquire();
 	// Create Directory
 	Inode* inode = NULL;
 	if(dir_lookup(parent_dir, basename, &inode)) {
 		inode_close(inode);
 		dir_close(parent_dir);
+		filesys_lock_release ();
 		return false;
 	}
 	block_sector_t inode_sector = 0;
@@ -267,13 +284,16 @@ bool filesys_mkdir(const char* name) {
 
 	dir_close(dir);
 	dir_close(parent_dir);
+	filesys_lock_release ();
 	return true;
 }
 
 bool filesys_chdir(const char* name) {
 	struct file* file;
 	struct dir* dir;
+	filesys_lock_acquire();
 	if(!filesys_open_f_or_d(name, &file, &dir) || dir == NULL) {
+		filesys_lock_release ();
 		return false;
 	}
 	struct thread* cur = thread_current();
@@ -281,11 +301,13 @@ bool filesys_chdir(const char* name) {
 		dir_close(cur->cwd);
 	}
 	cur->cwd = dir;
+	filesys_lock_release ();
 	return true;
 }
 
 /* Formats the file system. */
 static void do_format(void) {
+	filesys_lock_acquire();
 	printf("Formatting file system...");
 	free_map_create();
 	if (!dir_create(ROOT_DIR_SECTOR, 16))
@@ -296,4 +318,5 @@ static void do_format(void) {
 	dir_close(root);
 	free_map_close();
 	printf("done.\n");
+	filesys_lock_release ();
 }

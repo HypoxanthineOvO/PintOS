@@ -268,13 +268,19 @@ void syscall_close(int fd){
 // Chdir
 bool syscall_chdir(const char* dir) {
 	check_string(dir);
-	return filesys_chdir(dir);
+	acquire_file_lock();
+	bool flag = filesys_chdir(dir);
+	release_file_lock();
+	return flag;
 }
 
 // Mkdir
 bool syscall_mkdir(const char* dir) {
 	check_string(dir);
-	return filesys_mkdir(dir);
+	acquire_file_lock();
+	bool flag = filesys_mkdir(dir);
+	release_file_lock();
+	return flag;
 }
 
 // Readdir

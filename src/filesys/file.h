@@ -5,6 +5,11 @@
 
 struct inode;
 
+void filesys_lock_acquire (void);
+void filesys_lock_release (void);
+void acquire_filesys_lock (void);
+void release_filesys_lock (void);
+void filesys_lock_init (void);
 /* Opening and closing files. */
 struct file *file_open (struct inode *);
 struct file *file_reopen (struct file *);
