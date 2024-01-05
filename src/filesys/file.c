@@ -18,15 +18,17 @@ void acquire_filesys_lock (void){
 void release_filesys_lock (void){
   lock_release (&filesys_lock);
 }
-void filesys_lock_acquire (void){return;
-    if(!lock_held_by_current_thread (&filesys_lock)){
-      acquire_filesys_lock();
-    }
+void filesys_lock_acquire (void){
+  held_by_cur();
+  if(!lock_held_by_current_thread (&filesys_lock)){
+    acquire_filesys_lock();
+  }
 }
-void filesys_lock_release (void){return;
-    if(!lock_held_by_current_thread (&filesys_lock)){
-      release_filesys_lock();
-    }
+void filesys_lock_release (void){
+  held_by_cur();
+  if(!lock_held_by_current_thread (&filesys_lock)){
+    release_filesys_lock();
+  }
 }
 void filesys_lock_init (void){
     lock_init (&filesys_lock);

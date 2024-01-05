@@ -96,6 +96,18 @@ bool open_pd_and_get_basename(const char* name, struct dir** dir, char** basenam
 	return true;
 }
 
+static void open_with_inode(Inode* inode, struct file **file, struct dir **dir){
+	
+	if(inode_is_dir(inode)) {
+		*dir = dir_open(inode);
+		*file = NULL;
+	}
+	else {
+		*file = file_open(inode);
+		*dir = NULL;
+	}
+}
+
 bool filesys_open_f_or_d(const char* name, struct file **file, struct dir **dir) {
 	// empty file
 	if(name[0] == '\0'){
@@ -123,14 +135,7 @@ bool filesys_open_f_or_d(const char* name, struct file **file, struct dir **dir)
 		filesys_lock_release ();
 		return false;
 	}
-	if(inode_is_dir(inode)) {
-		*dir = dir_open(inode);
-		*file = NULL;
-	}
-	else {
-		*file = file_open(inode);
-		*dir = NULL;
-	}
+	open_with_inode(inode, file, dir);
 	//free(basename);
 	filesys_lock_release ();
 	return true;
