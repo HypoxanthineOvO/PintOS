@@ -32,7 +32,6 @@ shutdown (void)
     {
     case SHUTDOWN_POWER_OFF:
       shutdown_power_off ();
-      
       break;
 
     case SHUTDOWN_REBOOT:
@@ -90,6 +89,7 @@ shutdown_power_off (void)
 {
   const char s[] = "Shutdown";
   const char *p;
+
 #ifdef FILESYS
   filesys_done ();
 #endif

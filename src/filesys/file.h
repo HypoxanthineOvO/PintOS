@@ -4,19 +4,12 @@
 #include "filesys/off_t.h"
 
 struct inode;
-/* Lock for file system operations. */
-void filesys_lock_init (void);
+#define held_by_cur() return
 void filesys_lock_acquire (void);
 void filesys_lock_release (void);
-int filesys_lock_is_held_by_current_thread (void);
-#define FILESYS_LOCK()                                                        \
-  int __is_filesys_locked = filesys_lock_is_held_by_current_thread ();        \
-  if (!__is_filesys_locked)                                                   \
-    filesys_lock_acquire ();
-#define FILESYS_UNLOCK()                                                      \
-  if (!__is_filesys_locked)                                                   \
-    filesys_lock_release ();
-
+void acquire_filesys_lock (void);
+void release_filesys_lock (void);
+void filesys_lock_init (void);
 /* Opening and closing files. */
 struct file *file_open (struct inode *);
 struct file *file_reopen (struct file *);

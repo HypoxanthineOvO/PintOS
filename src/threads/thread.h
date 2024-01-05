@@ -3,10 +3,9 @@
 
 #include <debug.h>
 #include <list.h>
-#include <hash.h>
 #include <stdint.h>
 #include "threads/synch.h"
-
+#include "filesys/directory.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -20,7 +19,6 @@ enum thread_status
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
-typedef int mapid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
 /* Thread priorities. */
@@ -33,7 +31,7 @@ typedef int mapid_t;
 #define THREAD_TICKS_TO_UNBLOCK_NO_TICKS (-1)
 // User Program Macro for Project 2
 #define USERPROG 
-#define VM
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -94,22 +92,17 @@ typedef int mapid_t;
 struct thread_link {
 	/* A Tracer of parent and child thread. */
 	int tid; // tid of child
-	struct list_elem elem;
+	struct list_elem elem; // child list elem
 	struct semaphore sema; // semaphore to syn exit state
-	int exit_code;
+	int exit_code; // Exit Status of Thread
 };
 
-struct thread_file {
-	int file_descriptor;
-	struct file* file;
-	struct list_elem file_elem;
-};
-
-struct thread_mmap {
-	mapid_t mapid; // mmap id
-	struct file* file; // File
-	void* mapped_addr; // mapped address
-	struct list_elem elem; // list element
+struct thread_node {
+	int file_descriptor; // num of file descriptor
+	bool is_dir;
+	struct file* file; // file in the thread
+	struct dir* dir;
+	struct list_elem elem; // file list elem
 };
 
 
@@ -136,22 +129,17 @@ struct thread {
 
 	// Status Flags
 	int exit_code; // Exit Status of Thread
-	bool success;
+	bool success; // Whether execute successfully
 	// Locks
 	struct semaphore sema; // Lock for thread
 
 	// Files
-	int self_fd;
+	int self_fd; // file descriptor
 	struct list file_list; // List of files
 	struct file* file_opened; // File opened by thread
 #endif
-
-#ifdef VM
-	struct hash page_table; // Page table for thread
-	void* esp; // User stack pointer
-	struct list mmap_list; // Mmaped files
-	mapid_t self_mapid; // mapid
-#endif
+	/* Structure for Project 4 */
+	struct dir* cwd;
 
 	/* Owned by thread.c. */
 	unsigned magic;                     /* Detects stack overflow. */

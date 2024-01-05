@@ -1,200 +1,167 @@
-# CS140 Project 3: Virtual Memory
+# CS140 Project 4: File Systems Design Document
 ## Group
-- Yunxiang He <heyx1@shanghaitech.edu.cn>
-- Yicheng Fan <fanych1@shanghaitech.edu.cn>
+- **Yunxiang He** <heyx1@shanghaitech.edu.cn>
+- **Yicheng Fan** <fanych1@shanghaitech.edu.cn>
 
-# Page table management
+# Indexed And Extensible Files
 ## Data Structures
-
-### A1
-Copy here the declaration of each new or changed `struct` or `struct` member, global or static variable, `typedef`, or enumeration.  Identify the purpose of each in 25 words or less.
-```cpp
-/* page.h */
-typedef struct sup_page_entry{
-    // Core elements
-    void* user_virtual_addr; // User virtual address
-    struct frame_table_entry* frame; // If frame == NULL, not in memory
-    bool writable; // Write enable or not
-    // For LRU
-    uint64_t access_time; // Used for comparing to determine LRU
-
-    // Type Flag
-    bool in_stack; // Whether the page is in stack or not
-    
-    // Table elem
-    struct hash_elem elem; // Page table element
-
-} Page;
-
-/* frame.h */
-typedef struct frame_table_entry{
-    void* kpage; // Address of Frame
-    Page* corres_page; // corresponding user page
-    struct thread* owner; // The thread owns the frame
-
-    struct hash_elem elem; // For frame table
-
-    int flag; // Applying second chance algorithm
-} Frame;
-
-/* frame.c */
-static Hash frame_table;
-struct lock frame_lock;
-
-/* thread.h */
-struct thread{
+### A1: Copy here the declaration of each new or changed "struct" or "struct" member, global or static variable, typedef, or enumeration.  Identify the purpose of each in 25 words or less.
+```C++
+/* On-disk inode.
+   Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+typedef struct inode_disk
+{
     ...
-#ifdef VM
-	struct hash page_table; // Page table for thread
-	void* esp; // User stack pointer
-#endif
-    ...
-}
+	block_sector_t direct[DIRECT_BLOCK_NUM]; // 124 direct blocks
+    block_sector_t indirect; // 1 indirect block
+} InodeDisk;
+
+
+/* In-memory inode. */
+typedef struct inode
+{
+	bool removed;                       /* True if deleted, false otherwise. */
+    struct lock lock; // Lock for inode
+} Inode;
+
+typedef struct indirect_inode
+{
+    block_sector_t data[INDIRECT_BLOCK_NUM];
+} InodeIndirect;
+
 ```
 
 ## Algorithms
 
-### A2
-In a few paragraphs, describe your code for accessing the data stored in the SPT about a given page.
-- Our SPT is a hash table.
-- First, we use `page_find` to find the page in the SPT.
-- If the page is in swap, we use `swap_in` to load the page from swap.
-- If the page has a frame(`page->frame != NULL`), we can directly access the data in the frame.
-- If the page is mmaped, we need to load the page from file.
+### A2: What is the maximum size of a file supported by your inode structure?  Show your work.
+- We use 124 direct blocks and 1 double indirect blocks.
+- One double indirect block point to 128 indirect blocks.
+- So, our File system can support `(128 * 128 + 124) * 512 Byte = 8316 KB` File Size.
 
-### A3
-How does your code coordinate accessed and dirty bits between kernel and user virtual addresses that alias a single frame, or alternatively how do you avoid the issue?
-- We don't allow this aliasing to happen.
-- We avoid accesing the memory using kernel virtual address. It's only used for page initialization.
+## Rational
+### A3: Explain how your code avoids a race if two processes attempt to extend a file at the same time.
+- Our inode has a lock for IO synchronization.
+- When a process is extending a file, the lock will be acquired after any operation. The lock will be released only when the extending is done.
+- So, the two process will not extend the file at same time.
 
-## Synchornization
+### A4: Suppose processes A and B both have file F open, both positioned at end-of-file.  If A reads and B writes F at the same time, A may read all, part, or none of what B writes.  However, A may not read data other than what B writes, e.g. if B writes nonzero data, A is not allowed to see all zeros.  Explain how your code avoids this race.
+- If A read first, it will acquire lock and at the same time, B can not write until A end it's read. Thus the race will not happen.
+- If B write first, it will acquire lock and A can read only after B write done. So the race will not happen.
 
-### A4
-When two user processes both need a new frame at the same time, how are races avoided?
-- We use lock to avoid races.
-- In `frame.c`, we use a lock `frame_lock` to implement the synchronization.
-- Before any operation on the frame table, we need to acquire the lock, and release it after the operation.
+### A5: Explain how your synchronization design provides "fairness". File access is "fair" if readers cannot indefinitely block writers or vice versa.  That is, many processes reading from a file cannot prevent forever another process from writing the file, and many processes writing to a file cannot prevent another process forever from reading the file.
+- When a process finishes reading or writing a inode, it will release the lock of the inode immediately.
+- So a process can't prevent another process from reading or writing the file forever.
 
 ## Rationale
+### A6: Is your inode structure a multilevel index?  If so, why did you choose this particular combination of direct, indirect, and doubly indirect blocks?  If not, why did you choose an alternative inode structure, and what advantages and disadvantages does your structure have, compared to a multilevel index?
+- Yes. We use 124 direct block and double indirect block.
+- We only have 128 blocks, and 124 direct block is enough for most files. So we don't need to use indirect block.
+- For those files that are larger than 124 * 512 KB, we use double indirect block to store the block number of indirect block, which can store 128 * 128 * 512 KB data.
 
-#### A5
-Why did you choose the data structure(s) that you did for representing virtual-to-physical mappings?
-- Noticed that Hash Table provides $O(1)$ time complexity for search, insert and delete operations, we choose it as our data structure.
-- It's more efficient than other data structures like linked list, binary search tree, etc.
-
-# Paging to and from disk
+# Subdirectories
 ## Data Structures
-
-### B1
-Copy here the declaration of each new or changed `struct` or `struct` member, global or static variable, `typedef`, or enumeration.  Identify the purpose of each in 25 words or less.
-```cpp
-typedef struct sup_page_entry{
-    ...
-    // For Swap
-    size_t swap_idx; // The position in the swap disk
-    ...
-} Page;
-```
-
-
-
-## Algorithms
-
-### B2
-When a frame is required but none is free, some frame must be evicted.  Describe your code for choosing a frame to evict.
-- We choose Second Chance algorithm to evict a frame.
-- Theoritically, all pages are considered in a round robin matter.
-- One page will be evict when it is visisted at second time.
-- When we access a page, the second change bit will be reset to 0.
-
-### B3
-When a process P obtains a frame that was previously used by a process Q, how do you adjust the page table (and any other data structures) to reflect the frame Q no longer has?
-- When Q no longer has the frame, we need to remove the frame from Q's SPT.
-- That is implemented in `frame_free` function. After the frame is freed, `page->frame` will be set to NULL.
-- Thus we can know that Q no longer has the frame.
-
-### B4
-Explain your heuristic for deciding whether a page fault for an invalid virtual address should cause the stack to be extended into the page that faulted.
-- If following conditions are satisfied, we think the address is a valid stack access.
-  - `addr >= PHYS_BASE`: The address is not in user virtual address space.
-  - `addr <= esp - 32`: The address is not in the stack growth area.
-  - The stack is not larger than 8MB.
-
-## Synchronization
-### B5
-Explain the basics of your VM synchronization design.  In particular, explain how it prevents deadlock.  (Refer to the textbook for an explanation of the necessary conditions for deadlock.)
-- In our implementation, we only use one lock `frame_lock` to implement synchronization.
-- That means no "hold and wait" condition for deadlock happens.
-- So, we don't need to worry about deadlock.
-
-### B6
-A page fault in process P can cause another process Q's frame to be evicted.  How do you ensure that Q cannot access or modify the page during the eviction process?  How do you avoid a race between P evicting Q's frame and Q faulting the page back in?
-- We use `frame_lock` to ensure that Q cannot access or modify the page during the eviction process.
-- When P evicts Q's frame, it will acquire the lock. The lock will be released after the eviction.
-- When Q faults the page back in, it will also acquire the lock. The lock will be released after the page is loaded.
-- So, there will be no race between P evicting Q's frame and Q faulting the page back in.
-
-### B7
-Suppose a page fault in process P causes a page to be read from the file system or swap.  How do you ensure that a second process Q cannot interfere by e.g. attempting to evict the frame while it is still being read in?
-- We use `frame_lock` to ensure that Q cannot interfere by e.g. attempting to evict the frame while it is still being read in.
-
-### B8
-Explain how you handle access to paged-out pages that occur during system calls.  Do you use page faults to bring in pages (as in user programs), or do you have a mechanism for "locking" frames into physical memory, or do you use some other design?  How do you gracefully handle attempted accesses to invalid virtual addresses?
-- We use page faults to bring in pages.
-- When a page fault occurs, we will check whether the page is in SPT.
-- If the page is in SPT, we will load the page from swap or file.
-- If the page is not in SPT, we think it's an invalid virtual address and exit the process.
-
-## Rationale
-### B9
-A single lock for the whole VM system would make synchronization easy, but limit parallelism.  On the other hand, using many locks complicates synchronization and raises the possibility for deadlock but allows for high parallelism.  Explain where your design falls along this continuum and why you chose to design it this way.
-- PintOS is a single core system, so we don't need to worry about parallelism.
-- Thus we choose to use single lock for the whole VM system to make synchronization easy.
-
-# Memory mapped files
-## Data Structures
-### C1
-Copy here the declaration of each new or changed `struct` or `struct` member, global or static variable, `typedef`, or enumeration.  Identify the purpose of each in 25 words or less.
-```cpp
-struct thread
+### B1: Copy here the declaration of each new or changed "struct" or "struct" member, global or static variable, typedef, or enumeration.  Identify the purpose of each in 25 words or less.
+```C++
+/* On-disk inode.
+   Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+typedef struct inode_disk
 {
-    ...
-	struct list mmap_list; // Mmaped files
-	mapid_t self_mapid; // mapid
-    ...
-}
+	unsigned is_dir; // 1 if this inode is a directory, 0 if not
+} InodeDisk;
 
-struct thread_mmap
-{
-	mapid_t mapid; // mmap id
-	struct file* file; // File
-	void* mapped_addr; // mapped address
-	struct list_elem elem; // list element
+/* thread.c */
+struct thread_node {
+	int file_descriptor; // num of file descriptor
+	bool is_dir;
+	struct file* file; // file in the thread
+	struct dir* dir;
+	struct list_elem elem; // file list elem
 };
 
-struct sup_page_entry
-{
-    // File 
-    // Mapping size = file_offset ~ file_offset + file_size
-    struct file* file; // whether mmaped
-    int32_t file_offset; // begining of file
-    uint32_t file_size; // size of file
+struct thread {
+    ...
+	struct dir* cwd;
+    ...
 }
 ```
 
 ## Algorithms
-### C2
-Describe how memory mapped files integrate into your virtual memory subsystem.  Explain how the page fault and eviction processes differ between swap pages and other pages.
-- We use the file to determine whether it is mmaped or not.If it is mmaped, use `fread` to load the file and `memset` the page_zero_bytes to 0.
+### B2: Describe your code for traversing a user-specified path.  How do traversals of absolute and relative paths differ?
+Firstly, we split basename and parent path.
+- If the path is absolute(Start with "/"), we start from the root directory.
+- If the path is relative, we start from the current working directory.
+Then, we traverse the path.
+- If it is an absolute path, we traverse the path from the root directory.
+- If it is a relative path, we traverse the path from the current working directory.
 
-- For swap page, if we determine it as mmaped, we write it to the file it maps, rather than to the swap disk. And the `swap_idx` of page is always `BITMAP_ERROR` since it doesn't write in the swap disk.
 
-### C3
-Explain how you determine whether a new file mapping overlaps any existing segment.
-- In `syscall_mmap`, we check it in a for loop by checking all through the file with `page_find`, if we find an existing page, we return -1.
+## Synchronization
+### B4: How do you prevent races on directory entries?  For example, only one of two simultaneous attempts to remove a single file should succeed, as should only one of two simultaneous attempts to create a file with the same name, and so on.
+- By using a filesys lock, our file system module is single thread.
+- That means, any file operation will be done one by one, no two file operation will be executed at the same time.
+
+### B5: Does your implementation allow a directory to be removed if it is open by a process or if it is in use as a process's current working directory?  If so, what happens to that process's future file system operations?  If not, how do you prevent it?
+- Before removing a directory, we will check if it is open by a process or if it is in use as a process's current working directory by using an `open_cnt` in inode structure.
+- If `open_cnt == 1`, which means only the current process is using the directory, we can remove it.
+
+## Rational
+### B6: Explain why you chose to represent the current directory of a process the way you did.
+- By adding `struct dir *cwd;` in the `struct thread` structure.
+- The reason is that we need to know the current directory of a process. We doesn't allow a directory to be removed if it is open by a process or if it is in use as a process's current working directory. So it is nice to have a pointer to the current directory of a process, which prevents the directory from being removed.
+- Besides, it's more convinient to use a pointer than to open the directory every time we need it.
+
+# Buffer Cache
+## Data Structures
+### C1: Copy here the declaration of each new or changed "struct" or "struct" member, global or static variable, typedef, or enumeration.  Identify the purpose of each in 25 words or less.
+```C++
+// File system cache
+typedef struct cache
+{
+    block_sector_t sector_id; // The sector id
+    bool dirty; // Whether this cache has changed
+    bool second_chance; // Second chance algorithm
+    uint8_t data[BLOCK_SECTOR_SIZE]; // The data block of the cache
+    struct lock lock; // When read or write, lock
+} Cache;
+
+struct read_ahead_entry {
+    struct list_elem elem; // The list element of readahead
+    block_sector_t sector_id; // readahead sector id
+};
+
+extern struct lock cache_lock; // lock for cache
+extern struct semaphore write_behind_success; // semaphore for write behind
+
+extern struct list read_ahead_list; // The list for read ahead
+extern struct semaphore read_ahead_success; // Semaphore for read ahead
+
+static Cache cache[CACHE_SIZE]; // The array for cache block
+```
+## Algorithms
+### C2: Describe how your cache replacement algorithm chooses a cache block to evict.
+
+We consider the second chance algorithm to evict the cache block.When the cache is accessed, the flag for it will be changed and the cache will be evicted when visited twice.
+
+### C3: Describe your implementation of write-behind.
+
+For some ticks, we write dirty cache to the disk with a write behind thread, which runs during the filesys is on. To synchronize, we use semaphore `write_behind_success` to implement it.
+
+### C4: Describe your implementation of read-ahead.
+
+Similar to write behind, we also use a read ahead thread to read the data to cache. And also similar to write behind, we use semaphore `read_ahead_success`.Besides that, we pass the sector id with a list `read_ahead_list`, and then read the data to cache.
+
+## Synchronization
+### C5: When one process is actively reading or writing data in a buffer cache block, how are other processes prevented from evicting that block?
+
+We have a lock for each cache. When reading or writing, the lock will lock the cache block. It ensures that the cache won't be evicted when being locked.
+
+### C6: During the eviction of a block from the cache, how are other processes prevented from attempting to access the block?
+
+Here we have a global lock `cache_lock`, the `cache_lock` will be locked when evicting. When doing cache operation, the thread will `lock_acquire(&cache_lock)`. After having done, `lock_release(&c->lock)`.Then other processes won't reach the block.
 
 ## Rationale
+### C7: Describe a file workload likely to benefit from buffer caching, and workloads likely to benefit from read-ahead and write-behind.
 
-### C4
-Mappings created with "mmap" have similar semantics to those of data demand-paged from executables, except that "mmap" mappings are written back to their original files, not to swap.  This implies that much of their implementation can be shared.  Explain why your implementation either does or does not share much of the code for the two situations.
-- Our code share much for these two situations. Because in `syscall_mmap`, we create multiple pages. But we don't consider the content of the file when doing the page creation. These pages are similar to stack grow with the same page fault handler. Thus we don't need to change ,uch our implementation.
+- Access the same block for many times: benefit from buffer caching;
+- Access the data sequentially: benefit from read-ahead;
+- The file keeps open and not frequently written: benefit from write-behind.

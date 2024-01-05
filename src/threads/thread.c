@@ -292,7 +292,6 @@ thread_exit(void) {
 #ifdef USERPROG
 	process_exit();
 #endif
-
 	intr_disable();
 	struct thread* cur = thread_current();
 	printf ("%s: exit(%d)\n",thread_name(), thread_current()->exit_code);
@@ -301,21 +300,19 @@ thread_exit(void) {
 	//free(cur->child);
 	file_close(cur->file_opened);
 
-
 	struct list* file_list = &cur->file_list;
 	struct list_elem* e;
 
 	while(!list_empty(file_list)){
 		e = list_pop_front(file_list);
-		struct thread_file* thread_file = list_entry(e, struct thread_file, file_elem);
-		//acquire_file_lock();
-		file_close(thread_file->file);
-		//release_file_lock();
+		struct thread_node* thread_node = list_entry(e, struct thread_node, elem);
+		acquire_file_lock();
+		file_close(thread_node->file);
+		release_file_lock();
+		
 		list_remove(e);
-		free(thread_file);
+		free(thread_node);
 	}
-	
-	
 	/* Remove thread from all threads list, set our status to dying,
 	   and schedule another process.  That process will destroy us
 	   when it calls thread_schedule_tail(). */
@@ -500,13 +497,9 @@ init_thread(struct thread* t, const char* name, int priority) {
 	list_init(&t->file_list);
 	sema_init(&t->sema, 0);
 	t->success = true;
-	t->exit_code = UINT32_MAX;
+	t->exit_code = -1;//UINT32_MAX;
 	t->self_fd = 2;
 	t->file_opened = NULL;
-#endif
-#ifdef VM
-	list_init(&t->mmap_list);
-	t->self_mapid = 0;
 #endif
 	old_level = intr_disable();
 	list_push_back(&all_list, &t->allelem);
@@ -597,7 +590,7 @@ static void schedule(void) {
 	ASSERT(intr_get_level() == INTR_OFF);
 	ASSERT(cur->status != THREAD_RUNNING);
 	ASSERT(is_thread(next));
-	
+
 	if (cur != next)
 		prev = switch_threads(cur, next);
 	thread_schedule_tail(prev);

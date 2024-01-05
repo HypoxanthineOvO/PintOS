@@ -18,11 +18,9 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-#include "vm/page.h"
-#include "vm/frame.h"
-
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
+
 
 
 /* Starts a new thread running a user program loaded from
@@ -67,19 +65,14 @@ static void start_process(void *file_name_) {
 	struct intr_frame if_;
 	bool success;
 
-	struct thread* current_thread = thread_current();
-
-	/* Initialize for VM */
-	#ifdef VM
-	page_table_init(&current_thread->page_table);
-	#endif 
-
 	/* Initialize interrupt frame and load executable. */
 	memset(&if_, 0, sizeof if_);
 	if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
 	if_.cs = SEL_UCSEG;
 	if_.eflags = FLAG_IF | FLAG_MBS;
 	success = load(command, &if_.eip, &if_.esp);
+
+	struct thread* current_thread = thread_current();
 	if(success) {
 		thread_current()->parent->success = true;
 		sema_up(&thread_current()->parent->sema);
@@ -109,7 +102,6 @@ static void start_process(void *file_name_) {
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int process_wait(tid_t child_tid) {
-	
 	struct thread* current_thread = thread_current();
 	struct list_elem* e;
 	struct thread_link* child = NULL;
@@ -127,28 +119,17 @@ int process_wait(tid_t child_tid) {
 	if(e == list_end(&current_thread->children_list)){
 		return -1;
 	}
-	
 	list_remove(e);
 	return child->exit_code;
 }
 /* Free the current process's resources. */
 void process_exit(void) {
 	struct thread *cur = thread_current();
-	
-	#ifdef VM
-	page_table_destroy(&cur->page_table);
-	for(struct list_elem* e = list_begin(&cur->mmap_list);
-						e != list_end(&cur->mmap_list);){
-			struct thread_mmap* thread_mmap = list_entry(e, struct thread_mmap, elem);
-			e = list_next(e);
-			free(thread_mmap);
-		}
-	#endif
+	uint32_t *pd;
+
 	/* Destroy the current process's page directory and switch back
 	   to the kernel-only page directory. */
-	uint32_t *pd;
 	pd = cur->pagedir;
-	
 	if (pd != NULL) {
 		/* Correct ordering here is crucial.  We must set
 		   cur->pagedir to NULL before switching page directories,
@@ -161,7 +142,6 @@ void process_exit(void) {
 		pagedir_activate(NULL);
 		pagedir_destroy(pd);
 	}
-	
 }
 
 /* Sets up the CPU for running user code in the current
@@ -363,99 +343,55 @@ done:
 
 /* Our setup stack and it's helpers */
 static bool push_arguments_to_stack(void** esp, const char* argument_string){
-	// // Generally esp is 0xc0000000
-	// int argc = 0, argv[128];
-	// char* save_ptr;
-	// char* token = strtok_r(argument_string, " ", &save_ptr);
-	// /* Noticed that the order of them are not important, because we use pointer to refer them */
-	// while(token){
-	// 	*esp -= (strlen(token) + 1);
-	// 	memcpy(*esp, token, strlen(token) + 1); // Copy token to stack
-	// 	argv[argc++] = (int)*esp;
-	// 	token = strtok_r(NULL, " ", &save_ptr);
-	// }
+	// Generally esp is 0xc0000000
+	int argc = 0, argv[128];
+	char* save_ptr;
+	char* token = strtok_r(argument_string, " ", &save_ptr);
+	/* Noticed that the order of them are not important, because we use pointer to refer them */
+	while(token){
+		*esp -= (strlen(token) + 1);
+		memcpy(*esp, token, strlen(token) + 1); // Copy token to stack
+		argv[argc++] = (int)*esp;
+		token = strtok_r(NULL, " ", &save_ptr);
+	}
 
-	// *esp = (int)*esp & 0xfffffffc; // Word Align
-	// *esp -= 4;
-	// *(int*)*esp = 0;
-	// for(int i = argc - 1; i >= 0; i--){
-	// 	*esp -= 4;
-	// 	*(int*)*esp = argv[i]; // Address of argv[i]
-	// }
-	// *esp -= 4;
-	// *(int*)*esp =(int)*esp + 4; // Address of argv
-	// *esp -= 4;
-	// *(int*)*esp = argc;
-	// *esp -= 4;
-	// *(int*)*esp = 0;
-	// return true;
-  uint8_t *top = PHYS_BASE;
-
-  unsigned int argument_length = strlen (argument_string) + 1;
-  if (argument_length > 1024)
-    return false;
-  memcpy (top -= argument_length, argument_string, argument_length);
-  char *stack_argument_string = (char *)top;
-
-  unsigned int argc = 0;
-  char *save_ptr;
-  for (char *token = strtok_r (stack_argument_string, " ", &save_ptr);
-       token != NULL; token = strtok_r (NULL, " ", &save_ptr))
-    {
-      *(char **)(top -= 4) = token;
-      argc++;
-    }
-  *(char **)(top -= 4) = NULL; /* The length of argv[] is argc + 1 */
-  char **argv = (char **)top;
-  /* Reverse argv[] */
-  for (char **front = argv, **back = argv + argc; front < back;
-       ++front, --back)
-    {
-      char *t = *front;
-      *front = *back;
-      *back = t;
-    }
-
-  *(char ***)(top -= 4) = argv;
-  *(int *)(top -= 4) = argc;
-  *(int *)(top -= 4) = 0; /* Return address, never used */
-  *esp = top;
-  return true;
+	*esp = (int)*esp & 0xfffffffc; // Wprd Align
+	*esp -= 4;
+	*(int*)*esp = 0;
+	for(int i = argc - 1; i >= 0; i--){
+		*esp -= 4;
+		*(int*)*esp = argv[i]; // Address of argv[i]
+	}
+	*esp -= 4;
+	*(int*)*esp =(int)*esp + 4; // Address of argv
+	*esp -= 4;
+	*(int*)*esp = argc;
+	*esp -= 4;
+	*(int*)*esp = 0;
+	return true;
 }
 /* load() helpers. */
+
+static bool install_page(void *upage, void *kpage, bool writable);
 
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 // static bool setup_stack(void **esp, const char *command)
 static bool setup_stack(void **esp, const char* command) {
-	lock_acquire(&frame_lock);
 	uint8_t *kpage;
 	bool success = false;
-	struct thread* cur = thread_current();
-	//kpage = palloc_get_page(PAL_USER | PAL_ZERO);
-	Page* page = page_create_on_stack(
-		&cur->page_table,
-		((uint8_t *)PHYS_BASE) - PGSIZE
-	);
-	page->writable = true;
-	kpage = page->frame->kpage;
-	
+
+	kpage = palloc_get_page(PAL_USER | PAL_ZERO);
 	if (kpage != NULL) {
 		success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
 		if (success) {
 			*esp = PHYS_BASE;
 			success = push_arguments_to_stack(esp, command);
 		}
-		else{
-			//palloc_free_page(kpage);
-			//puts("PAGE ALLOCATION FAILED");
-			page_free(&cur->page_table, page);	
-		}
+
+		else
+			palloc_free_page(kpage);
 	}
-	else{
-		puts("PAGE ALLOCATION FAILED");
-	}
-	lock_release(&frame_lock);
 	return success;
 }
 
@@ -527,33 +463,14 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 	ASSERT(ofs % PGSIZE == 0);
 
 	file_seek(file, ofs);
-	Hash* page_table = &thread_current()->page_table;
-	while (read_bytes > 0 || zero_bytes > 0) {
+	while (read_bytes > 0 || zero_bytes > 0)
+	{
 		/* Calculate how to fill this page.
 		   We will read PAGE_READ_BYTES bytes from FILE
 		   and zero the final PAGE_ZERO_BYTES bytes. */
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		#ifdef VM
-		if (page_read_bytes == 0){
-			lock_acquire(&frame_lock);
-			Page* page = page_create_out_stack(
-				page_table, upage, writable, NULL, 0, 0
-			);
-			lock_release(&frame_lock);
-			ASSERT (page);
-		}
-		else {
-			lock_acquire(&frame_lock);
-			Page* page = page_create_out_stack(
-				page_table, upage, writable, file, ofs, page_read_bytes
-			);
-			ofs += page_read_bytes;
-			lock_release(&frame_lock);
-			ASSERT (page);
-		}
-		#else
 		/* Get a page of memory. */
 		uint8_t *kpage = palloc_get_page(PAL_USER);
 		if (kpage == NULL)
@@ -573,13 +490,12 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 			palloc_free_page(kpage);
 			return false;
 		}
-		#endif
+
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
 		upage += PGSIZE;
 	}
-	//puts("LOAD SEGMENT DONE");
 	return true;
 }
 
@@ -594,9 +510,9 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
    with palloc_get_page().
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
-
-bool install_page(void *upage, void *kpage, bool writable) {
+static bool install_page(void *upage, void *kpage, bool writable) {
 	struct thread *t = thread_current();
+
 	/* Verify that there's not already a page at that virtual
 	   address, then map our page there. */
 	return (pagedir_get_page(t->pagedir, upage) == NULL && pagedir_set_page(t->pagedir, upage, kpage, writable));

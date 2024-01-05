@@ -66,8 +66,6 @@ struct hash
     void *aux;                  /* Auxiliary data for `hash' and `less'. */
   };
 
-typedef struct hash Hash;
-
 /* A hash table iterator. */
 struct hash_iterator 
   {
