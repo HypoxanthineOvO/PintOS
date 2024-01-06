@@ -71,7 +71,7 @@ struct dir* try_dir_open(char* dir) {
 	return cur;
 }
 
-bool open_pd_and_get_basename(const char* name, struct dir** dir, char** basename) {
+bool open_parentdir_get_basename(const char* name, struct dir** dir, char** basename) {
 	size_t size = strlen(name) + 1;
 	char* parent_dir_path = (char*)malloc(size);
 	*basename = (char*)malloc(size);
@@ -83,10 +83,11 @@ bool open_pd_and_get_basename(const char* name, struct dir** dir, char** basenam
 		free(*basename);
 		return false;
 	}
-	filesys_lock_acquire();
-	
+
+	filesys_lock_acquire ();
 	struct dir* parent_dir = try_dir_open(parent_dir_path);
 	filesys_lock_release ();
+
 	free(parent_dir_path);
 	if(parent_dir == NULL) {
 		free(*basename);
@@ -97,7 +98,6 @@ bool open_pd_and_get_basename(const char* name, struct dir** dir, char** basenam
 }
 
 static void open_with_inode(Inode* inode, struct file **file, struct dir **dir){
-	
 	if(inode_is_dir(inode)) {
 		*dir = dir_open(inode);
 		*file = NULL;
@@ -108,7 +108,7 @@ static void open_with_inode(Inode* inode, struct file **file, struct dir **dir){
 	}
 }
 
-bool filesys_open_f_or_d(const char* name, struct file **file, struct dir **dir) {
+bool filesys_open_file_or_dir(const char* name, struct file **file, struct dir **dir) {
 	// empty file
 	if(name[0] == '\0'){
 		return NULL;
@@ -124,7 +124,7 @@ bool filesys_open_f_or_d(const char* name, struct file **file, struct dir **dir)
 	struct dir* parent_dir;
 	char* basename;
 
-	if(!open_pd_and_get_basename(name, &parent_dir, &basename)) {
+	if(!open_parentdir_get_basename(name, &parent_dir, &basename)) {
 		return false;
 	}
 	filesys_lock_acquire();
@@ -184,7 +184,7 @@ filesys_create(const char* name, off_t initial_size)
 	// Project 4
 	struct dir* parent_dir;
 	char* basename;
-	if(!open_pd_and_get_basename(name, &parent_dir, &basename)) {
+	if(!open_parentdir_get_basename(name, &parent_dir, &basename)) {
 		return false;
 	}
 	// Create Directory
@@ -209,7 +209,7 @@ filesys_create(const char* name, off_t initial_size)
 struct file* filesys_open(const char* name) {
 	struct dir* parent_dir;
 	char* basename;
-	if(!open_pd_and_get_basename(name, &parent_dir, &basename)) {
+	if(!open_parentdir_get_basename(name, &parent_dir, &basename)) {
 		return NULL;
 	}
 	//("filesys_open");
@@ -227,14 +227,9 @@ struct file* filesys_open(const char* name) {
    Fails if no file named NAME exists,
    or if an internal memory allocation fails. */
 bool filesys_remove(const char* name) {
-	// struct dir* dir = dir_open_root();
-	// bool success = dir != NULL && dir_remove(dir, name);
-	// dir_close(dir);
-
-	// return success;
 	struct dir* parent_dir;
 	char* basename;
-	if (!open_pd_and_get_basename(name, &parent_dir, &basename))
+	if (!open_parentdir_get_basename(name, &parent_dir, &basename))
 		return false;
 	filesys_lock_acquire();
 	Inode* inode;
@@ -267,7 +262,7 @@ bool filesys_remove(const char* name) {
 bool filesys_mkdir(const char* name) {
 	struct dir* parent_dir;
 	char* basename;
-	if(!open_pd_and_get_basename(name, &parent_dir, &basename)) {
+	if(!open_parentdir_get_basename(name, &parent_dir, &basename)) {
 		return false;
 	}
 	filesys_lock_acquire();
@@ -297,7 +292,7 @@ bool filesys_chdir(const char* name) {
 	struct file* file;
 	struct dir* dir;
 	filesys_lock_acquire();
-	if(!filesys_open_f_or_d(name, &file, &dir) || dir == NULL) {
+	if(!filesys_open_file_or_dir(name, &file, &dir) || dir == NULL) {
 		filesys_lock_release ();
 		return false;
 	}

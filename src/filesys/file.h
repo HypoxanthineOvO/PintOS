@@ -4,7 +4,7 @@
 #include "filesys/off_t.h"
 
 struct inode;
-#define held_by_cur() return
+#define assert_held_by_cur() return
 void filesys_lock_acquire (void);
 void filesys_lock_release (void);
 void acquire_filesys_lock (void);

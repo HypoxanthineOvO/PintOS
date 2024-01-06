@@ -119,7 +119,7 @@ int syscall_open(const char* file){
 	// Use filesys_open
 	struct file* file_ptr = NULL;
 	struct dir* dir_ptr = NULL;
-	if(filesys_open_f_or_d(file, &file_ptr, &dir_ptr)){
+	if(filesys_open_file_or_dir(file, &file_ptr, &dir_ptr)){
 		ASSERT (file_ptr != NULL || dir_ptr != NULL);
 		ASSERT (file_ptr == NULL || dir_ptr == NULL);
 		struct thread* current_thread = thread_current();

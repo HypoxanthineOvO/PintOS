@@ -17,7 +17,7 @@ void filesys_done (void);
 bool filesys_create (const char *name, off_t initial_size);
 struct file *filesys_open (const char *name);
 bool filesys_remove (const char *name);
-bool filesys_open_f_or_d(const char* name, struct file ** , struct dir **);
+bool filesys_open_file_or_dir(const char* name, struct file ** , struct dir **);
 bool filesys_mkdir(const char* name);
 bool filesys_chdir(const char* name);
 
